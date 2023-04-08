@@ -61,10 +61,8 @@ threadmain(int argc, char **argv)
 
 	if(srvname == nil) {
 		client0 = mallocz(sizeof(Client), 1);
-		if(client0 == nil){
-			fprint(2, "initdraw: allocating client0: out of memory");
-			abort();
-		}
+		if(client0 == nil)
+			sysfatal("initdraw: allocating client0: out of memory");
 		client0->displaydpi = 100;
 		client0->rfd = 3;
 		client0->wfd = 4;
@@ -125,10 +123,8 @@ listenproc(void *v)
 		if(fd < 0)
 			sysfatal("listen: %r");
 		c = mallocz(sizeof(Client), 1);
-		if(c == nil){
-			fprint(2, "initdraw: allocating client0: out of memory");
-			abort();
-		}
+		if(c == nil)
+			sysfatal("listenproc: allocating client: out of memory");
 		c->displaydpi = 100;
 		c->rfd = fd;
 		c->wfd = fd;
@@ -382,17 +378,17 @@ matchkbd(Client *c)
 	}
 }
 
-// matchmouse matches queued mouse reads with queued mouse events.
-// It must be called with c->eventlk held.
+/*
+ * Match queued mouse reads with queued mouse events.
+ * Must be called with c->eventlk held.
+ */
 static void
 matchmouse(Client *c)
 {
 	Wsysmsg m;
 
-	if(canqlock(&c->eventlk)) {
-		fprint(2, "misuse of matchmouse\n");
-		abort();
-	}
+	if(canqlock(&c->eventlk))
+		sysfatal("matchmouse: event lock must be held");
 
 	while(c->mouse.ri != c->mouse.wi && c->mousetags.ri != c->mousetags.wi){
 		m.type = Rrdmouse;
@@ -402,10 +398,6 @@ matchmouse(Client *c)
 		m.mouse = c->mouse.m[c->mouse.ri];
 		m.resized = c->mouse.resized;
 		c->mouse.resized = 0;
-		/*
-		if(m.resized)
-			fprint(2, "sending resize\n");
-		*/
 		c->mouse.ri++;
 		if(c->mouse.ri == nelem(c->mouse.m))
 			c->mouse.ri = 0;
@@ -413,76 +405,99 @@ matchmouse(Client *c)
 	}
 }
 
+/*
+ * Add a mouse event to the mouse buffer.
+ * Must be called with c->eventlk held.
+ */
+static void
+putmouse(Client *c, int x, int y, int b, int scroll, uint ms)
+{
+	Rectangle mr;
+	Mousebuf *mbuf;
+	Mouse *m;
+
+	if(canqlock(&c->eventlk))
+		sysfatal("putmouse: event lock must be held");
+
+	mr = c->mouserect;
+	if(x < mr.min.x)
+		x = mr.min.x;
+	if(x >= mr.max.x)
+		x = mr.max.x-1;
+	if(y < mr.min.y)
+		y = mr.min.y;
+	if(y >= mr.max.y)
+		y = mr.max.y-1;
+
+	/*
+	 * If reader has stopped reading, don't bother.
+	 * If reader is completely caught up, definitely queue.
+	 * Otherwise, queue only button change events.
+	 */
+	mbuf = &c->mouse;
+	if(mbuf->stall || (mbuf->wi!=mbuf->ri && mbuf->last.buttons==b))
+		return;
+
+	m = &mbuf->last;
+	m->xy.x = x;
+	m->xy.y = y;
+	m->buttons = b;
+	m->scroll = scroll;
+	m->msec = ms;
+
+	mbuf->m[mbuf->wi] = *m;
+	if(++mbuf->wi == nelem(mbuf->m))
+		mbuf->wi = 0;
+	if(mbuf->wi == mbuf->ri){
+		mbuf->stall = 1;
+		mbuf->ri = 0;
+		mbuf->wi = 1;
+		mbuf->m[0] = *m;
+	}
+	matchmouse(c);
+}
+
+/*
+ * Repeat the last mouse event for resize.
+ */
 void
 gfx_mouseresized(Client *c)
 {
-	gfx_mousetrack(c, -1, -1, -1, -1);
-}
-
-void
-gfx_mousetrack(Client *c, int x, int y, int b, uint ms)
-{
+	int i;
 	Mouse *m;
 
 	qlock(&c->eventlk);
-	if(x == -1 && y == -1 && b == -1 && ms == -1) {
-		Mouse *copy;
-		// repeat last mouse event for resize
-		if(c->mouse.ri == 0)
-			copy = &c->mouse.m[nelem(c->mouse.m)-1];
-		else
-			copy = &c->mouse.m[c->mouse.ri-1];
-		x = copy->xy.x;
-		y = copy->xy.y;
-		b = copy->buttons;
-		ms = copy->msec;
-		c->mouse.resized = 1;
-	}
-	if(x < c->mouserect.min.x)
-		x = c->mouserect.min.x;
-	if(x > c->mouserect.max.x)
-		x = c->mouserect.max.x;
-	if(y < c->mouserect.min.y)
-		y = c->mouserect.min.y;
-	if(y > c->mouserect.max.y)
-		y = c->mouserect.max.y;
-
-	// If reader has stopped reading, don't bother.
-	// If reader is completely caught up, definitely queue.
-	// Otherwise, queue only button change events.
-	if(!c->mouse.stall)
-	if(c->mouse.wi == c->mouse.ri || c->mouse.last.buttons != b){
-		m = &c->mouse.last;
-		m->xy.x = x;
-		m->xy.y = y;
-		m->buttons = b;
-		m->msec = ms;
-
-		c->mouse.m[c->mouse.wi] = *m;
-		if(++c->mouse.wi == nelem(c->mouse.m))
-			c->mouse.wi = 0;
-		if(c->mouse.wi == c->mouse.ri){
-			c->mouse.stall = 1;
-			c->mouse.ri = 0;
-			c->mouse.wi = 1;
-			c->mouse.m[0] = *m;
-		}
-		matchmouse(c);
-	}
+	i = c->mouse.ri;
+	if(i == 0)
+		i = nelem(c->mouse.m);
+	m = &c->mouse.m[i-1];
+	c->mouse.resized = 1;
+	putmouse(c, m->xy.x, m->xy.y, m->buttons, m->scroll, m->msec);
 	qunlock(&c->eventlk);
 }
 
-// kputc adds ch to the keyboard buffer.
-// It must be called with c->eventlk held.
-static void
-kputc(Client *c, int ch)
+/*
+ * Enqueue a new mouse event.
+ */
+void
+gfx_mousetrack(Client *c, int x, int y, int b, int scroll, uint ms)
 {
-	if(canqlock(&c->eventlk)) {
-		fprint(2, "misuse of kputc\n");
-		abort();
-	}
+	qlock(&c->eventlk);
+	putmouse(c, x, y, b, scroll, ms);
+	qunlock(&c->eventlk);
+}
 
-	c->kbd.r[c->kbd.wi++] = ch;
+/*
+ * Add a key code to the keyboard buffer.
+ * Must be called with c->eventlk held.
+ */
+static void
+putkey(Client *c, int key)
+{
+	if(canqlock(&c->eventlk))
+		sysfatal("putkey: event lock must be held");
+
+	c->kbd.r[c->kbd.wi++] = key;
 	if(c->kbd.wi == nelem(c->kbd.r))
 		c->kbd.wi = 0;
 	if(c->kbd.ri == c->kbd.wi)
@@ -530,7 +545,7 @@ gfx_keystroke(Client *c, int ch)
 		return;
 	}
 	if(!c->kbd.alting){
-		kputc(c, ch);
+		putkey(c, ch);
 		qunlock(&c->eventlk);
 		return;
 	}
@@ -540,7 +555,7 @@ gfx_keystroke(Client *c, int ch)
 	ch = latin1(c->kbd.k, c->kbd.nk);
 	if(ch > 0){
 		c->kbd.alting = 0;
-		kputc(c, ch);
+		putkey(c, ch);
 		c->kbd.nk = 0;
 		qunlock(&c->eventlk);
 		return;
@@ -548,7 +563,7 @@ gfx_keystroke(Client *c, int ch)
 	if(ch == -1){
 		c->kbd.alting = 0;
 		for(i=0; i<c->kbd.nk; i++)
-			kputc(c, c->kbd.k[i]);
+			putkey(c, c->kbd.k[i]);
 		c->kbd.nk = 0;
 		qunlock(&c->eventlk);
 		return;

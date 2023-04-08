@@ -317,12 +317,10 @@ drawinstallscreen(Client *client, DScreen *d, int id, DImage *dimage, DImage *df
 	Memscreen *s;
 	CScreen *c;
 
-	c = mallocz(sizeof(CScreen), 1);
-	if(dimage && dimage->image && dimage->image->chan == 0){
-		fprint(2, "bad image %p in drawinstallscreen", dimage->image);
-		abort();
-	}
+	if(dimage!=nil && dimage->image!=nil && dimage->image->chan==0)
+		sysfatal("drawinstallscreen: bad image %p", dimage->image);
 
+	c = mallocz(sizeof(CScreen), 1);
 	if(c == 0)
 		return 0;
 	if(d == 0){

@@ -61,9 +61,9 @@ sizeW2M(Wsysmsg *m)
 	case Rresize:
 		return 4+1+1;
 	case Rrdmouse:
-		return 4+1+1+4+4+4+4+1;
+		return 4+1+1+4+4+2+4+4+1;
 	case Tbouncemouse:
-		return 4+1+1+4+4+4;
+		return 4+1+1+4+4+2+4;
 	case Tmoveto:
 		return 4+1+1+4+4;
 	case Tcursor:
@@ -136,14 +136,16 @@ convW2M(Wsysmsg *m, uchar *p, uint n)
 	case Rrdmouse:
 		PUT(p+6, m->mouse.xy.x);
 		PUT(p+10, m->mouse.xy.y);
-		PUT(p+14, m->mouse.buttons);
-		PUT(p+18, m->mouse.msec);
-		p[19] = m->resized;
+		PUT2(p+14, m->mouse.buttons);
+		PUT(p+16, m->mouse.scroll);
+		PUT(p+20, m->mouse.msec);
+		p[24] = m->resized;
 		break;
 	case Tbouncemouse:
 		PUT(p+6, m->mouse.xy.x);
 		PUT(p+10, m->mouse.xy.y);
-		PUT(p+14, m->mouse.buttons);
+		PUT2(p+14, m->mouse.buttons);
+		PUT(p+16, m->mouse.scroll);
 		break;
 	case Tmoveto:
 		PUT(p+6, m->mouse.xy.x);
@@ -244,14 +246,16 @@ convM2W(uchar *p, uint n, Wsysmsg *m)
 	case Rrdmouse:
 		GET(p+6, m->mouse.xy.x);
 		GET(p+10, m->mouse.xy.y);
-		GET(p+14, m->mouse.buttons);
-		GET(p+18, m->mouse.msec);
-		m->resized = p[19];
+		GET2(p+14, m->mouse.buttons);
+		GET(p+16, m->mouse.scroll);
+		GET(p+20, m->mouse.msec);
+		m->resized = p[24];
 		break;
 	case Tbouncemouse:
 		GET(p+6, m->mouse.xy.x);
 		GET(p+10, m->mouse.xy.y);
-		GET(p+14, m->mouse.buttons);
+		GET2(p+14, m->mouse.buttons);
+		GET(p+16, m->mouse.scroll);
 		break;
 	case Tmoveto:
 		GET(p+6, m->mouse.xy.x);
@@ -347,12 +351,12 @@ drawfcallfmt(Fmt *fmt)
 	case Trdmouse:
 		return fmtprint(fmt, "Trdmouse");
 	case Rrdmouse:
-		return fmtprint(fmt, "Rrdmouse x=%d y=%d buttons=%d msec=%d resized=%d",
-			m->mouse.xy.x, m->mouse.xy.y,
-			m->mouse.buttons, m->mouse.msec, m->resized);
+		return fmtprint(fmt, "Rrdmouse x=%d y=%d buttons=%d scroll=%d msec=%d resized=%d",
+			m->mouse.xy.x, m->mouse.xy.y, m->mouse.buttons, m->mouse.scroll,
+			m->mouse.msec, m->resized);
 	case Tbouncemouse:
-		return fmtprint(fmt, "Tbouncemouse x=%d y=%d buttons=%d",
-			m->mouse.xy.x, m->mouse.xy.y, m->mouse.buttons);
+		return fmtprint(fmt, "Tbouncemouse x=%d y=%d buttons=%d scroll=%d",
+			m->mouse.xy.x, m->mouse.xy.y, m->mouse.buttons, m->mouse.scroll);
 	case Rbouncemouse:
 		return fmtprint(fmt, "Rbouncemouse");
 	case Tmoveto:

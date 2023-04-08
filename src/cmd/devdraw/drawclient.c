@@ -74,11 +74,12 @@ cmdmouse(int argc, char **argv)
 	m.type = Trdmouse;
 	if(domsg(&m) < 0)
 		sysfatal("domsg");
-	print("%c %d %d %d\n",
+	print("%c %d %d %d %d\n",
 		m.resized ? 'r' : 'm',
 		m.mouse.xy.x,
 		m.mouse.xy.y,
-		m.mouse.buttons);
+		m.mouse.buttons,
+		m.mouse.scroll);
 }
 
 void

@@ -181,7 +181,8 @@ rpc_shutdown(void)
 - (void)setmouse:(Point)p;
 - (void)clearInput;
 - (void)getmouse:(NSEvent*)e;
-- (void)sendmouse:(NSUInteger)b;
+- (void)sendmouse:(int)b;
+- (void)sendmouse:(int)b scroll:(int)scroll;
 - (void)resetLastInputRect;
 - (void)enlargeLastInputRect:(NSRect)r;
 @end
@@ -605,9 +606,9 @@ rpc_resizewindow(Client *c, Rectangle r)
 
 	s = [e scrollingDeltaY];
 	if(s > 0.0f)
-		[self sendmouse:8];
+		[self sendmouse:Mlinescroll scroll:-1];
 	else if (s < 0.0f)
-		[self sendmouse:16];
+		[self sendmouse:Mlinescroll scroll:+1];
 }
 
 - (void)keyDown:(NSEvent*)e
@@ -705,16 +706,22 @@ rpc_resizewindow(Client *c, Rectangle r)
 	[self sendmouse:b];
 }
 
-- (void)sendmouse:(NSUInteger)b
+- (void)sendmouse:(int)b
+{
+	[self sendmouse:b scroll:0];
+}
+
+- (void)sendmouse:(int)b scroll:(int)scroll
 {
 	NSPoint p;
 
-	p = [self.window convertPointToBacking:
-		[self.window mouseLocationOutsideOfEventStream]];
-	p.y = Dy(self.client->mouserect) - p.y;
-	// LOG(@"(%g, %g) <- sendmouse(%d)", p.x, p.y, (uint)b);
-	gfx_mousetrack(self.client, p.x, p.y, b, msec());
-	if(b && _lastInputRect.size.width && _lastInputRect.size.height)
+	p = [self.window mouseLocationOutsideOfEventStream];
+	p = [self.window convertPointToBacking:p];
+	p.y = self.client->mouserect.max.y - p.y;
+	// LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
+
+	gfx_mousetrack(self.client, (int)p.x, (int)p.y, b, scroll, msec());
+	if(b!=0 && !NSIsEmptyRect(_lastInputRect))
 		[self resetLastInputRect];
 }
 

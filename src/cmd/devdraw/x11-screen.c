@@ -406,7 +406,7 @@ runxevent(XEvent *xev)
 	case MotionNotify:
 		if(_xtoplan9mouse(w, xev, &m) < 0)
 			return;
-		gfx_mousetrack(w->client, m.xy.x, m.xy.y, m.buttons|_x.kbuttons, m.msec);
+		gfx_mousetrack(w->client, m.xy.x, m.xy.y, m.buttons|_x.kbuttons, m.scroll, m.msec);
 		break;
 
 	case KeyRelease:
@@ -465,7 +465,7 @@ runxevent(XEvent *xev)
 					_x.kbuttons |= 2;
 				if(c & Mod1Mask)
 					_x.kbuttons |= 4;
-				gfx_mousetrack(w->client, m.xy.x, m.xy.y, m.buttons|_x.kbuttons, m.msec);
+				gfx_mousetrack(w->client, m.xy.x, m.xy.y, m.buttons|_x.kbuttons, m.scroll, m.msec);
 			}
 			modp = 0;
 		}
@@ -1280,12 +1280,10 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 	switch(e->type){
 	case ButtonPress:
 		be = (XButtonEvent*)e;
-
 		/*
-		 * Fake message, just sent to make us announce snarf.
-		 * Apparently state and button are 16 and 8 bits on
-		 * the wire, since they are truncated by the time they
-		 * get to us.
+		 * Fake message, just sent to make us announce snarf. Apparently,
+		 * state and button are 16 and 8 bits on the wire, since they are
+		 * truncated by the time they get to us.
 		 */
 		if(be->send_event
 		&& (~be->state&0xFFFF)==0
@@ -1294,8 +1292,8 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 		/* BUG? on mac need to inherit these from elsewhere? */
 		m->xy.x = be->x;
 		m->xy.y = be->y;
-		s = be->state;
 		m->msec = be->time;
+		s = be->state;
 		switch(be->button){
 		case 1:
 			s |= Button1Mask;
@@ -1314,12 +1312,13 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 			break;
 		}
 		break;
+
 	case ButtonRelease:
 		be = (XButtonEvent*)e;
 		m->xy.x = be->x;
 		m->xy.y = be->y;
-		s = be->state;
 		m->msec = be->time;
+		s = be->state;
 		switch(be->button){
 		case 1:
 			s &= ~Button1Mask;
@@ -1340,28 +1339,34 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 		break;
 
 	case MotionNotify:
+		if(m->buttons & Mscrollsmask)
+			return -1;	/* do not repeat scroll events on mouse move */
 		me = (XMotionEvent*)e;
-		s = me->state;
 		m->xy.x = me->x;
 		m->xy.y = me->y;
 		m->msec = me->time;
-		return 0; // do not set buttons
+		return 0;	/* inherit buttons from the last mouse event */
 
 	default:
 		return -1;
 	}
 
 	m->buttons = 0;
+	m->scroll = 0;
 	if(s & Button1Mask)
 		m->buttons |= 1;
 	if(s & Button2Mask)
 		m->buttons |= 2;
 	if(s & Button3Mask)
 		m->buttons |= 4;
-	if(s & Button4Mask)
-		m->buttons |= 8;
-	if(s & Button5Mask)
-		m->buttons |= 16;
+	if(s & Button4Mask){
+		m->buttons = Mlinescroll;
+		m->scroll = -1;
+	}
+	if(s & Button5Mask){
+		m->buttons = Mlinescroll;
+		m->scroll = +1;
+	}
 	return 0;
 }
 

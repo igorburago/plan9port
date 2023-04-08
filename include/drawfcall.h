@@ -5,7 +5,7 @@
 tag[1] Rerror error[s]
 
 tag[1] Trdmouse
-tag[1] Rrdmouse x[4] y[4] button[4] msec[4] resized[1]
+tag[1] Rrdmouse x[4] y[4] buttons[2] scroll[4] msec[4] resized[1]
 
 tag[1] Tmoveto x[4] y[4]
 tag[1] Rmoveto
@@ -16,7 +16,7 @@ tag[1] Rcursor
 tag[1] Tcursor2 cursor[]
 tag[1] Rcursor2
 
-tag[1] Tbouncemouse x[4] y[4] button[4]
+tag[1] Tbouncemouse x[4] y[4] buttons[2] scroll[4]
 tag[1] Rbouncemouse
 
 tag[1] Trdkbd
