@@ -49,7 +49,8 @@ static void	rpc_topwin(Client*);
 static void	rpc_bouncemouse(Client*, Mouse);
 static void	rpc_flush(Client*, Rectangle);
 
-static ClientImpl x11impl = {
+static ClientImpl x11impl =
+{
 	rpc_resizeimg,
 	rpc_resizewindow,
 	rpc_setcursor,
@@ -81,8 +82,8 @@ findxwin(XDrawable d)
 {
 	Xwin *w, **l;
 
-	for(l=&_x.windows; (w=*l) != nil; l=&w->next) {
-		if(w->drawable == d) {
+	for(l=&_x.windows; (w=*l)!=nil; l=&w->next){
+		if(w->drawable == d){
 			/* move to front */
 			*l = w->next;
 			w->next = _x.windows;
@@ -161,7 +162,7 @@ gfx_main(void)
 	/*
 	 * Connect to X server.
 	 */
-	_x.display = XOpenDisplay(NULL);
+	_x.display = XOpenDisplay(nil);
 	if(_x.display == nil){
 		disp = getenv("DISPLAY");
 		werrstr("XOpenDisplay %s: %r", disp ? disp : ":0");
@@ -181,21 +182,15 @@ gfx_main(void)
 	|| XMatchVisualInfo(_x.display, xrootid, 24, DirectColor, &xvi)){
 		_x.vis = xvi.visual;
 		_x.depth = 24;
-	}
-	else
-	if(XMatchVisualInfo(_x.display, xrootid, 16, TrueColor, &xvi)
+	}else if(XMatchVisualInfo(_x.display, xrootid, 16, TrueColor, &xvi)
 	|| XMatchVisualInfo(_x.display, xrootid, 16, DirectColor, &xvi)){
 		_x.vis = xvi.visual;
 		_x.depth = 16;
-	}
-	else
-	if(XMatchVisualInfo(_x.display, xrootid, 15, TrueColor, &xvi)
+	}else if(XMatchVisualInfo(_x.display, xrootid, 15, TrueColor, &xvi)
 	|| XMatchVisualInfo(_x.display, xrootid, 15, DirectColor, &xvi)){
 		_x.vis = xvi.visual;
 		_x.depth = 15;
-	}
-	else
-	if(XMatchVisualInfo(_x.display, xrootid, 8, PseudoColor, &xvi)
+	}else if(XMatchVisualInfo(_x.display, xrootid, 8, PseudoColor, &xvi)
 	|| XMatchVisualInfo(_x.display, xrootid, 8, StaticColor, &xvi)){
 		if(_x.depth > 8){
 			werrstr("can't deal with colormapped depth %d screens",
@@ -204,8 +199,7 @@ gfx_main(void)
 		}
 		_x.vis = xvi.visual;
 		_x.depth = 8;
-	}
-	else{
+	}else{
 		_x.depth = DefaultDepth(_x.display, xrootid);
 		if(_x.depth != 8){
 			werrstr("can't understand depth %d screen", _x.depth);
@@ -286,26 +280,26 @@ xloop(void)
 
 	xlock();
 	_x.fd = ConnectionNumber(_x.display);
-	for(;;) {
+	for(;;){
 		FD_ZERO(&rd);
 		FD_ZERO(&wr);
 		FD_ZERO(&xx);
 		FD_SET(_x.fd, &rd);
 		FD_SET(_x.fd, &xx);
 		if(_x.windows != nil)
-			XSelectInput(_x.display, _x.windows->drawable, Mask); // TODO: when is this needed?
+			XSelectInput(_x.display, _x.windows->drawable, Mask);	/* TODO: when is this needed? */
 		XFlush(_x.display);
 		xunlock();
 
 	again:
-		if(select(_x.fd+1, &rd, &wr, &xx, nil) < 0) {
+		if(select(_x.fd+1, &rd, &wr, &xx, nil) < 0){
 			if(errno == EINTR)
 				goto again;
-			sysfatal("select: %r"); // TODO: quiet exit?
+			sysfatal("select: %r");	/* TODO: quiet exit? */
 		}
 
 		xlock();
-		while(XPending(_x.display)) {
+		while(XPending(_x.display)){
 			XNextEvent(_x.display, &event);
 			runxevent(&event);
 		}
@@ -393,16 +387,16 @@ runxevent(XEvent *xev)
 
 	case ButtonPress:
 		be = (XButtonEvent*)xev;
-		if(be->button == 1) {
+		if(be->button == 1){
 			if(_x.kstate & ControlMask)
 				be->button = 2;
 			else if(_x.kstate & Mod1Mask)
 				be->button = 3;
 		}
-		// fall through
+		/* fall through */
 	case ButtonRelease:
 		_x.altdown = 0;
-		// fall through
+		/* fall through */
 	case MotionNotify:
 		if(_xtoplan9mouse(w, xev, &m) < 0)
 			return;
@@ -412,9 +406,9 @@ runxevent(XEvent *xev)
 	case KeyRelease:
 	case KeyPress:
 		ke = (XKeyEvent*)xev;
-		XLookupString(ke, NULL, 0, &k, NULL);
+		XLookupString(ke, nil, 0, &k, nil);
 		c = ke->state;
-		switch(k) {
+		switch(k){
 		case XK_Alt_L:
 		case XK_Meta_L:	/* Shift Alt on PCs */
 		case XK_Alt_R:
@@ -422,7 +416,7 @@ runxevent(XEvent *xev)
 		case XK_Multi_key:
 			if(xev->type == KeyPress)
 				_x.altdown = 1;
-			else if(_x.altdown) {
+			else if(_x.altdown){
 				_x.altdown = 0;
 				gfx_keystroke(w->client, Kalt);
 			}
@@ -430,7 +424,7 @@ runxevent(XEvent *xev)
 		}
 
 		if(xev->type == KeyPress)
-			switch(k) {
+			switch(k){
 			case XK_Control_L:
 			case XK_Control_R:
 				kcodecontrol = ke->keycode;
@@ -440,26 +434,26 @@ runxevent(XEvent *xev)
 			case XK_Alt_L:
 			case XK_Alt_R:
 				kcodealt = ke->keycode;
-				// fall through
+				/* fall through */
 			case XK_Shift_L:
 			case XK_Shift_R:
 				kcodeshift = ke->keycode;
 				c |= Mod1Mask;
 				modp = 1;
 			}
-		else {
+		else{
 			if(ke->keycode == kcodecontrol){
 				c &= ~ControlMask;
 				modp = 1;
-		        } else if(ke->keycode == kcodealt || ke->keycode == kcodeshift){
+			}else if(ke->keycode==kcodealt || ke->keycode==kcodeshift){
 				c &= ~Mod1Mask;
 				modp = 1;
 			}
 		}
 		if(modp){
 			_x.kstate = c;
-			if(m.buttons!=0 || _x.kbuttons!=0) {
-				_x.altdown = 0; // used alt
+			if(m.buttons!=0 || _x.kbuttons!=0){
+				_x.altdown = 0;	/* used alt */
 				_x.kbuttons = 0;
 				if(c & ControlMask)
 					_x.kbuttons |= Mbutton2;
@@ -530,7 +524,7 @@ xattach(Client *client, char *label, char *winsize)
 	mask = 0;
 	x = 0;
 	y = 0;
-	if(winsize && winsize[0]){
+	if(winsize!=nil && winsize[0]!='\0'){
 		if(parsewinsize(winsize, &r, &havemin) < 0)
 			sysfatal("%r");
 	}else{
@@ -552,7 +546,7 @@ xattach(Client *client, char *label, char *winsize)
 		display_resources = XResourceManagerString(_x.display);
 		if(display_resources == nil){
 			home = getenv("HOME");
-			if(home!=nil && (file=smprint("%s/.Xdefaults", home)) != nil){
+			if(home!=nil && (file=smprint("%s/.Xdefaults", home))!=nil){
 				XrmCombineFileDatabase(file, &database, False);
 				free(file);
 			}
@@ -560,18 +554,17 @@ xattach(Client *client, char *label, char *winsize)
 		}else
 			XrmCombineDatabase(XrmGetStringDatabase(display_resources), &database, False);
 
-		if (XrmGetResource(database, "Xft.dpi", "String", &dpitype, &dpires) == True) {
-			if (dpires.addr) {
-				client->displaydpi = atoi(dpires.addr);
-			}
+		if(XrmGetResource(database, "Xft.dpi", "String", &dpitype, &dpires)
+		&& dpires.addr!=nil){
+			client->displaydpi = atoi(dpires.addr);
 		}
 		geom = smprint("%s.geometry", label);
-		if(geom && XrmGetResource(database, geom, nil, &geomrestype, &geomres))
+		if(geom!=nil && XrmGetResource(database, geom, nil, &geomrestype, &geomres))
 			mask = XParseGeometry(geomres.addr, &x, &y, (uint*)&width, (uint*)&height);
 		XrmDestroyDatabase(database);
 		free(geom);
 
-		if((mask & WidthValue) && (mask & HeightValue)){
+		if((mask&WidthValue) && (mask&HeightValue)){
 			r = Rect(0, 0, width, height);
 		}else{
 			r = Rect(0, 0, WidthOfScreen(xscreen)*3/4,
@@ -601,7 +594,7 @@ xattach(Client *client, char *label, char *winsize)
 		x,		/* x */
 		y,		/* y */
 		Dx(r),		/* width */
-	 	Dy(r),		/* height */
+		Dy(r),		/* height */
 		0,		/* border width */
 		_x.depth,	/* depth */
 		InputOutput,	/* class */
@@ -624,7 +617,7 @@ xattach(Client *client, char *label, char *winsize)
 
 	memset(&normalhint, 0, sizeof normalhint);
 	normalhint.flags = PSize|PMaxSize;
-	if(winsize && winsize[0]){
+	if(winsize!=nil && winsize[0]!='\0'){
 		normalhint.flags &= ~PSize;
 		normalhint.flags |= USSize;
 		normalhint.width = Dx(r);
@@ -681,12 +674,12 @@ xattach(Client *client, char *label, char *winsize)
 		/*
 		 * Must pretend origin is 0,0 for X.
 		 */
-		r = Rect(0,0,Dx(r),Dy(r));
+		r = Rect(0, 0, Dx(r), Dy(r));
 	}
 	/*
 	 * Look up clipboard atom.
 	 */
-	 if(_x.clipboard == 0) {
+	if(_x.clipboard == 0){
 		_x.clipboard = XInternAtom(_x.display, "CLIPBOARD", False);
 		_x.utf8string = XInternAtom(_x.display, "UTF8_STRING", False);
 		_x.targets = XInternAtom(_x.display, "TARGETS", False);
@@ -710,8 +703,8 @@ xattach(Client *client, char *label, char *winsize)
 
 	if(!XGetWindowAttributes(_x.display, w->drawable, &wattr))
 		fprint(2, "XGetWindowAttributes failed\n");
-	else if(wattr.width && wattr.height){
-		if(wattr.width != Dx(r) || wattr.height != Dy(r)){
+	else if(wattr.width!=0 && wattr.height!=0){
+		if(wattr.width!=Dx(r) || wattr.height!=Dy(r)){
 			r.max.x = wattr.width;
 			r.max.y = wattr.height;
 		}
@@ -734,19 +727,19 @@ xattach(Client *client, char *label, char *winsize)
 	 * These can be used with any drawable matching w->drawable's
 	 * pixel format (which is all the drawables we create).
 	 */
-	 if(_x.gcfill == 0) {
-		_x.gcfill	= xgc(w->screenpm, FillSolid, -1);
-		_x.gccopy	= xgc(w->screenpm, -1, -1);
-		_x.gcsimplesrc 	= xgc(w->screenpm, FillStippled, -1);
-		_x.gczero	= xgc(w->screenpm, -1, -1);
-		_x.gcreplsrc	= xgc(w->screenpm, FillTiled, -1);
+	if(_x.gcfill == 0){
+		_x.gcfill = xgc(w->screenpm, FillSolid, -1);
+		_x.gccopy = xgc(w->screenpm, -1, -1);
+		_x.gcsimplesrc = xgc(w->screenpm, FillStippled, -1);
+		_x.gczero = xgc(w->screenpm, -1, -1);
+		_x.gcreplsrc = xgc(w->screenpm, FillTiled, -1);
 
 		pmid = XCreatePixmap(_x.display, w->drawable, 1, 1, 1);
-		_x.gcfill0	= xgc(pmid, FillSolid, 0);
-		_x.gccopy0	= xgc(pmid, -1, -1);
-		_x.gcsimplesrc0	= xgc(pmid, FillStippled, -1);
-		_x.gczero0	= xgc(pmid, -1, -1);
-		_x.gcreplsrc0	= xgc(pmid, FillTiled, -1);
+		_x.gcfill0 = xgc(pmid, FillSolid, 0);
+		_x.gccopy0 = xgc(pmid, -1, -1);
+		_x.gcsimplesrc0 = xgc(pmid, FillStippled, -1);
+		_x.gczero0 = xgc(pmid, -1, -1);
+		_x.gcreplsrc0 = xgc(pmid, FillTiled, -1);
 		XFreePixmap(_x.display, pmid);
 	}
 
@@ -833,22 +826,22 @@ plan9cmap(void)
 	once = 1;
 
 	for(r=0; r!=4; r++)
-	for(g = 0; g != 4; g++)
-	for(b = 0; b!=4; b++)
-	for(v = 0; v!=4; v++){
-		den=r;
+	for(g=0; g!=4; g++)
+	for(b=0; b!=4; b++)
+	for(v=0; v!=4; v++){
+		den = r;
 		if(g > den)
-			den=g;
+			den = g;
 		if(b > den)
-			den=b;
+			den = b;
 		/* divide check -- pick grey shades */
-		if(den==0)
-			cr=cg=cb=v*17;
-		else {
-			num=17*(4*den+v);
-			cr=r*num/den;
-			cg=g*num/den;
-			cb=b*num/den;
+		if(den == 0)
+			cr = cg = cb = v*17;
+		else{
+			num = 17*(4*den+v);
+			cr = r*num/den;
+			cg = g*num/den;
+			cb = b*num/den;
 		}
 		idx = r*64 + v*16 + ((g*4 + b + v - r) & 15);
 		_x.map[idx].red = cr*0x0101;
@@ -857,28 +850,26 @@ plan9cmap(void)
 		_x.map[idx].pixel = idx;
 		_x.map[idx].flags = DoRed|DoGreen|DoBlue;
 
-		v7 = v >> 1;
+		v7 = v>>1;
 		idx7 = r*32 + v7*16 + g*4 + b;
-		if((v & 1) == v7){
+		if((v&1) == v7){
 			_x.map7to8[idx7][0] = idx;
-			if(den == 0) { 		/* divide check -- pick grey shades */
+			if(den == 0){		/* divide check -- pick grey shades */
 				cr = ((255.0/7.0)*v7)+0.5;
 				cg = cr;
 				cb = cr;
-			}
-			else {
-				num=17*15*(4*den+v7*2)/14;
-				cr=r*num/den;
-				cg=g*num/den;
-				cb=b*num/den;
+			}else{
+				num = 17*15*(4*den+v7*2)/14;
+				cr = r*num/den;
+				cg = g*num/den;
+				cb = b*num/den;
 			}
 			_x.map7[idx7].red = cr*0x0101;
 			_x.map7[idx7].green = cg*0x0101;
 			_x.map7[idx7].blue = cb*0x0101;
 			_x.map7[idx7].pixel = idx7;
 			_x.map7[idx7].flags = DoRed|DoGreen|DoBlue;
-		}
-		else
+		}else
 			_x.map7to8[idx7][1] = idx;
 	}
 }
@@ -903,7 +894,7 @@ setupcmap(XWindow w)
 	if(_x.depth <= 1)
 		return 0;
 
-	if(_x.depth >= 24) {
+	if(_x.depth >= 24){
 		if(_x.usetable == 0)
 			_x.cmap = XCreateColormap(_x.display, w, _x.vis, AllocNone);
 
@@ -923,11 +914,11 @@ setupcmap(XWindow w)
 			werrstr("XAllocColor: %r");
 			return -1;
 		}
-		p  = c.pixel;
-		pp = rgb2cmap((p>>16)&0xff,(p>>8)&0xff,p&0xff);
-		if(pp != _x.map[19].pixel) {
+		p = c.pixel;
+		pp = rgb2cmap((p>>16)&0xff, (p>>8)&0xff, p&0xff);
+		if(pp != _x.map[19].pixel){
 			/* check if endian is other way */
-			pp = rgb2cmap(p&0xff,(p>>8)&0xff,(p>>16)&0xff);
+			pp = rgb2cmap(p&0xff, (p>>8)&0xff, (p>>16)&0xff);
 			if(pp != _x.map[19].pixel){
 				werrstr("cannot detect X server byte order");
 				return -1;
@@ -946,7 +937,7 @@ setupcmap(XWindow w)
 				break;
 			}
 		}
-	}else if(_x.vis->class == TrueColor || _x.vis->class == DirectColor){
+	}else if(_x.vis->class==TrueColor || _x.vis->class==DirectColor){
 		/*
 		 * Do nothing.  We have no way to express a
 		 * mixed-endian 16-bit screen, so pretend they don't exist.
@@ -957,12 +948,12 @@ setupcmap(XWindow w)
 		if(_x.usetable == 0){
 			_x.cmap = XCreateColormap(_x.display, w, _x.vis, AllocAll);
 			XStoreColors(_x.display, _x.cmap, _x.map, 256);
-			for(i = 0; i < 256; i++){
+			for(i=0; i<256; i++){
 				_x.tox11[i] = i;
 				_x.toplan9[i] = i;
 			}
 		}else{
-			for(i = 0; i < 128; i++){
+			for(i=0; i<128; i++){
 				c = _x.map7[i];
 				if(!XAllocColor(_x.display, _x.cmap, &c)){
 					werrstr("can't allocate colors in 7-bit map");
@@ -997,7 +988,7 @@ rpc_flush(Client *client, Rectangle r)
 		w->screenpm = w->nextscreenpm;
 	}
 
-	if(r.min.x >= r.max.x || r.min.y >= r.max.y) {
+	if(r.min.x>=r.max.x || r.min.y>=r.max.y){
 		xunlock();
 		return;
 	}
@@ -1052,7 +1043,7 @@ _xconfigure(Xwin *w, XEvent *e)
 			w->windowrect = Rect(rx, ry, rx+xe->width, ry+xe->height);
 	}
 
-	if(xe->width == Dx(w->screenr) && xe->height == Dy(w->screenr))
+	if(xe->width==Dx(w->screenr) && xe->height==Dy(w->screenr))
 		return 0;
 	r = Rect(0, 0, xe->width, xe->height);
 
@@ -1162,11 +1153,11 @@ _xtoplan9kbd(XEvent *e)
 		return -1;
 	needstack(64*1024);	/* X has some *huge* buffers in openobject */
 		/* and they're even bigger on SuSE */
-	XLookupString((XKeyEvent*)e,NULL,0,&k,NULL);
+	XLookupString((XKeyEvent*)e, nil, 0, &k, nil);
 	if(k == NoSymbol)
 		return -1;
 
-	if(k&0xFF00){
+	if(k & 0xFF00){
 		switch(k){
 		case XK_BackSpace:
 		case XK_Tab:
@@ -1242,9 +1233,10 @@ _xtoplan9kbd(XEvent *e)
 		case XK_Multi_key:
 			return -1;
 		default:		/* not ISO-1 or tty control */
-			if(k>0xff) {
+			if(k > 0xff){
 				k = _p9keysym2ucs(k);
-				if(k==-1) return -1;
+				if(k == -1)
+					return -1;
 			}
 		}
 	}
@@ -1253,11 +1245,10 @@ _xtoplan9kbd(XEvent *e)
 	if(k == XK_hyphen)
 		k = XK_minus;
 	/* Do control mapping ourselves if translator doesn't */
-	if(e->xkey.state&ControlMask)
+	if(e->xkey.state & ControlMask)
 		k &= 0x9f;
-	if(k == NoSymbol) {
+	if(k == NoSymbol)
 		return -1;
-	}
 
 	return k+0;
 }
@@ -1438,7 +1429,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 	xsrc = XCreateBitmapFromData(_x.display, w->drawable, (char*)src, 16, 16);
 	xmask = XCreateBitmapFromData(_x.display, w->drawable, (char*)mask, 16, 16);
 	xc = XCreatePixmapCursor(_x.display, xsrc, xmask, &fg, &bg, -c->offset.x, -c->offset.y);
-	if(xc != 0) {
+	if(xc != 0){
 		XDefineCursor(_x.display, w->drawable, xc);
 		if(_x.cursor != 0)
 			XFreeCursor(_x.display, _x.cursor);
@@ -1450,7 +1441,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 	xunlock();
 }
 
-struct {
+struct{
 	QLock lk;
 	char buf[SnarfSize];
 #ifdef APPLESNARF
@@ -1484,7 +1475,7 @@ _xgetsnarffrom(Xwin *w, XWindow xw, Atom clipboard, Atom target, int timeout0, i
 		usleep(10*1000);
 		XGetWindowProperty(_x.display, w->drawable, prop, 0, 0, 0, AnyPropertyType,
 			&type, &fmt, &dummy, &len, &xdata);
-		if(lastlen == len && len > 0){
+		if(lastlen==len && len>0){
 			XFree(xdata);
 			break;
 		}
@@ -1498,12 +1489,12 @@ _xgetsnarffrom(Xwin *w, XWindow xw, Atom clipboard, Atom target, int timeout0, i
 	xdata = nil;
 	XGetWindowProperty(_x.display, w->drawable, prop, 0, SnarfSize/sizeof(ulong), 0,
 		AnyPropertyType, &type, &fmt, &len, &dummy, &xdata);
-	if((type != target && type != XA_STRING && type != _x.utf8string) || len == 0){
-		if(xdata)
+	if((type!=target && type!=XA_STRING && type!=_x.utf8string) || len==0){
+		if(xdata != nil)
 			XFree(xdata);
 		return nil;
 	}
-	if(xdata){
+	if(xdata != nil){
 		data = (uchar*)strdup((char*)xdata);
 		XFree(xdata);
 		return data;
@@ -1533,7 +1524,7 @@ rpc_getsnarf(void)
 	 */
 	clipboard = XA_PRIMARY;
 	xw = XGetSelectionOwner(_x.display, XA_PRIMARY);
-	// TODO check more
+	/* TODO check more */
 	if(xw == w->drawable){
 	mine:
 		data = (uchar*)strdup(clip.buf);
@@ -1543,7 +1534,7 @@ rpc_getsnarf(void)
 	/*
 	 * If not, is there a clipboard selection?
 	 */
-	if(xw == None && _x.clipboard != None){
+	if(xw==None && _x.clipboard!=None){
 		clipboard = _x.clipboard;
 		xw = XGetSelectionOwner(_x.display, _x.clipboard);
 		if(xw == w->drawable)
@@ -1616,11 +1607,11 @@ if(0) fprint(2, "xselect target=%d requestor=%d property=%d selection=%d (sizeof
 		a[3] = _x.compoundtext;
 		XChangeProperty(_x.display, xe->requestor, xe->property, XA_ATOM,
 			32, PropModeReplace, (uchar*)a, nelem(a));
-	}else if(xe->target == XA_STRING
-	|| xe->target == _x.utf8string
-	|| xe->target == _x.text
-	|| xe->target == _x.compoundtext
-	|| ((name = XGetAtomName(_x.display, xe->target)) && strcmp(name, "text/plain;charset=UTF-8") == 0)){
+	}else if(xe->target==XA_STRING
+	|| xe->target==_x.utf8string
+	|| xe->target==_x.text
+	|| xe->target==_x.compoundtext
+	|| ((name=XGetAtomName(_x.display, xe->target)) && strcmp(name, "text/plain;charset=UTF-8")==0)){
 		/* text/plain;charset=UTF-8 seems nonstandard but is used by Synergy */
 		/* if the target is STRING we're supposed to reply with Latin1 XXX */
 		qlock(&clip.lk);
@@ -1670,7 +1661,7 @@ _applegetsnarf(void)
 		}
 	}
 	flags = PasteboardSynchronize(clip.apple);
-	if(flags&kPasteboardClientIsOwner){
+	if(flags & kPasteboardClientIsOwner){
 		s = strdup(clip.buf);
 		qunlock(&clip.lk);
 		return s;
@@ -1697,7 +1688,7 @@ _applegetsnarf(void)
 			s = smprint("%.*S", ndata/2, (Rune*)CFDataGetBytePtr(data));
 			CFRelease(flavors);
 			CFRelease(data);
-			for(t=s; *t; t++)
+			for(t=s; *t!='\0'; t++)
 				if(*t == '\r')
 					*t = '\n';
 			return s;

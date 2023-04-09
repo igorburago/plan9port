@@ -37,7 +37,7 @@ _xfillcolor(Memimage *m, Rectangle r, u32int v)
 			_x.gcfill0color = v;
 		}
 	}else{
-		if(m->chan == CMAP8 && _x.usetable)
+		if(m->chan==CMAP8 && _x.usetable)
 			v = _x.tox11[v];
 		gc = _x.gcfill;
 		if(_x.gcfillcolor != v){

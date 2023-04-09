@@ -78,7 +78,7 @@ xdraw(Memdrawparam *par)
 	 * a buggy X server that sometimes drops the XCopyArea
 	 * requests on the floor.
 	m = Simplemask|Fullmask;
-	if((state&(m|Replsrc))==m && src->chan==dst->chan && src->X){
+	if((state&(m|Replsrc))==m && src->chan==dst->chan && src->X!=nil){
 		Xmem *xsrc;
 		Point sp;
 
@@ -122,7 +122,7 @@ xdraw(Memdrawparam *par)
 			/* this doesn't work on rob's mac?  */
 			return 0;
 			/* gc = _x.gcsimplesrc;
-			if(dst->chan == CMAP8 && _x.usetable)
+			if(dst->chan==CMAP8 && _x.usetable)
 				sdval = _x.tox11[sdval];
 
 			if(_x.gcsimplesrccolor != sdval){

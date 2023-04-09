@@ -19,9 +19,9 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	XImage *xi;
 
 	m = _allocmemimage(r, chan);
-	if(chan != GREY1 && chan != _x.chan)
+	if(chan!=GREY1 && chan!=_x.chan)
 		return m;
-	if(_x.display == 0 || _x.windows == nil)
+	if(_x.display==nil || _x.windows==nil)
 		return m;
 
 	/*
@@ -81,7 +81,7 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	 * Set the XImage parameters so that it looks exactly like
 	 * a Memimage -- we're using the same data.
 	 */
-	if(m->depth < 8 || m->depth == 24)
+	if(m->depth<8 || m->depth==24)
 		xi->bitmap_unit = 8;
 	else
 		xi->bitmap_unit = m->depth;
@@ -110,8 +110,8 @@ freememimage(Memimage *m)
 		return;
 
 	xm = m->X;
-	if(xm && m->data->ref == 1){
-		if(xm->xi){
+	if(xm!=nil && m->data->ref==1){
+		if(xm->xi != nil){
 			xm->xi->data = nil;
 			XFree(xm->xi);
 		}

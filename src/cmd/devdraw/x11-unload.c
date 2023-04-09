@@ -8,7 +8,7 @@
 int
 unloadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 {
-	if(i->X)
+	if(i->X != nil)
 		_xgetxdata(i, r);
 	return _unloadmemimage(i, r, data, ndata);
 }
