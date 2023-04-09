@@ -511,11 +511,13 @@ void
 mousethread(void *v)
 {
 	Text *t, *argt;
-	int but;
 	uint q0, q1;
 	Window *w;
 	Plumbmsg *pm;
+	int samewin;
 	Mouse m;
+	Linesnapscroll scroll;
+	int but, lines;
 	char *act;
 	enum { MResize, MMouse, MPlumb, MWarnings, NMALT };
 	static Alt alts[NMALT+1];
@@ -537,6 +539,8 @@ mousethread(void *v)
 	if(cplumb == nil)
 		alts[MPlumb].op = CHANNOP;
 	alts[NMALT].op = CHANEND;
+
+	memset(&scroll, 0, sizeof(scroll));
 
 	for(;;){
 		qlock(&row.lk);
@@ -567,16 +571,28 @@ mousethread(void *v)
 		case MMouse:
 			/*
 			 * Make a copy so decisions are consistent; mousectl changes
-			 * underfoot.  Can't just receive into m because this introduces
+			 * underfoot. Can't just receive into m because this introduces
 			 * another race; see /sys/src/libdraw/mouse.c.
 			 */
 			m = mousectl->m;
 			qlock(&row.lk);
 			t = rowwhich(&row, m.xy);
 
-			if((t!=mousetext && t!=nil && t->w!=nil) &&
-				(mousetext==nil || mousetext->w==nil || t->w->id!=mousetext->w->id)) {
-				xfidlog(t->w, "focus");
+			if(t!=mousetext && t!=nil && t->w!=nil){
+				samewin = (mousetext!=nil && mousetext->w!=nil && mousetext->w->id==t->w->id);
+				if(!samewin)
+					xfidlog(t->w, "focus");
+				/*
+				 * In case mouse comes from another window or the other part
+				 * (tag or body) of the same window during a scroll motion,
+				 * do not carry over pending scroll, but do allow the motion
+				 * to go on in the new quarters if it is not inertial.
+				 */
+				if(scroll.inmotion && (!samewin || t->what!=mousetext->what)){
+					scroll.pendingdist = 0;
+					scroll.motionhaltup = scroll.inertial;
+					scroll.motionhaltdown = scroll.inertial;
+				}
 			}
 
 			if(t!=mousetext && mousetext!=nil && mousetext->w!=nil){
@@ -599,6 +615,18 @@ mousethread(void *v)
 			else if(m.buttons == 4)
 				but = 3;
 			barttext = t;
+
+			/* Scroll buttons, wheels, trackpad gestures, etc. */
+			if(m.buttons & Mscrollsmask){
+				lines = mouselinesnapscroll(&scroll, &m, t->fr.font->height, t->fr.maxlines);
+				if(w!=nil && lines!=0){
+					winlock(w, 'M');
+					t->eq0 = ~0;
+					winscroll(w, t, lines);
+					winunlock(w);
+				}
+				goto Continue;
+			}
 			if(t->what==Body && ptinrect(m.xy, t->scrollr)){
 				if(but){
 					if(swapscrollbuttons){
@@ -612,18 +640,6 @@ mousethread(void *v)
 					textscrclick(t, but);
 					winunlock(w);
 				}
-				goto Continue;
-			}
-			/* scroll buttons, wheels, etc. */
-			if(w != nil && (m.buttons & (8|16))){
-				if(m.buttons & 8)
-					but = Kscrolloneup;
-				else
-					but = Kscrollonedown;
-				winlock(w, 'M');
-				t->eq0 = ~0;
-				texttype(t, but);
-				winunlock(w);
 				goto Continue;
 			}
 			if(ptinrect(m.xy, t->scrollr)){

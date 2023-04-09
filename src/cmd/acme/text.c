@@ -686,13 +686,6 @@ texttype(Text *t, Rune r)
 			goto Tagdown;
 		n = t->fr.maxlines/3;
 		goto case_Down;
-	case Kscrollonedown:
-		if(t->what == Tag)
-			goto Tagdown;
-		n = mousescrollsize(t->fr.maxlines);
-		if(n <= 0)
-			n = 1;
-		goto case_Down;
 	case Kpgdown:
 		n = 2*t->fr.maxlines/3;
 	case_Down:
@@ -703,11 +696,6 @@ texttype(Text *t, Rune r)
 		if(t->what == Tag)
 			goto Tagup;
 		n = t->fr.maxlines/3;
-		goto case_Up;
-	case Kscrolloneup:
-		if(t->what == Tag)
-			goto Tagup;
-		n = mousescrollsize(t->fr.maxlines);
 		goto case_Up;
 	case Kpgup:
 		n = 2*t->fr.maxlines/3;
