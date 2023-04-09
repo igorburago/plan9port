@@ -59,11 +59,12 @@ defined in
 .BR <mouse.h> :
 .IP
 .EX
-.ta 6n +\w'Rectangle 'u +\w'buttons;   'u
+.ta 4n +\w'Point 'u +\w'buttons;  'u
 typedef struct Mouse Mouse;
 struct Mouse
 {
-	int	buttons;	/* bit array: LMR=124 */
+	int	buttons;	/* bit array (see bit assignment below) */
+	int	scroll;	/* signed scroll distance in pixels or lines */
 	Point	xy;
 	ulong	msec;
 };
@@ -74,17 +75,88 @@ The
 .B xy
 records the position of the cursor,
 .B buttons
-the state of the buttons (three bits representing, from bit 0 up, the buttons from left to right,
-0 if the button is released, 1 if it is pressed),
+the state of the buttons as a bit array,
+.B scroll
+the signed scroll distance for scrolling events (zero for the rest),
 and
 .BR msec ,
 a millisecond time stamp.
+The possible bits that may be set in
+.B buttons
+are as follows:
+.IP
+.EX
+.ta 4n +\w'Mscrollinertiastart 'u +\w'= 1<<0,  'u
+enum
+{
+	Mbutton1	= 1<<0,	/* left button */
+	Mbutton2	= 1<<1,	/* middle button */
+	Mbutton3	= 1<<2,	/* right button */
+	Mlinescroll	= 1<<3,	/* coarse scroll in line increments */
+	Mpixelscroll	= 1<<4,	/* precise scroll in pixel increments */
+	Mscrollmotionstart	= 1<<5,	/* upcoming Mpixelscrolls come from one gesture */
+	Mscrollmotionstop	= 1<<6,	/* further Mpixelscrolls are standalone again */
+	Mscrollinertiastart	= 1<<7,	/* like a regular motion, but for inertial scrolling */
+	Mscrollinertiastop	= 1<<8,	/* likewise, back to standalone scrolls */
+
+	Mbuttonsmask	= Mbutton1 | Mbutton2 | Mbutton3,
+	Mscrollsmask	= Mlinescroll | Mpixelscroll |
+		  Mscrollmotionstart | Mscrollmotionstop |
+		  Mscrollinertiastart | Mscrollinertiastop
+};
+.EE
+.PP
+The three least significant bits
+.BR Mbutton1 ,
+.BR Mbutton2 ,
+.B Mbutton3
+(0 through 2) represent the state of the left, middle, and right mouse
+buttons: if a bit is set, the corresponding button is pressed;
+if unset, it is released.
+The following four bits (3 through 6) represent different mutually
+exclusive scrolling events and are never set simultaneously.
+Bits
+.B Mlinescroll
+and
+.B Mpixelscroll
+(3 and 4) signify a scroll event with, respectively,
+a line- and pixel-granular
+.B
+scroll
+distance.
+Bits
+.B Mscrollmotionstart
+and
+.B Mscrollmotionstop
+(5 and 6) signify the events of a scroll motion being started and
+stopped, respectively.
+.PP
+A scroll motion corresponds to a gesture on a high-precision input
+device that spawns multiple coalesced pixel-level scroll events as
+part of one whole continuous scrolling action.
+The designation of a motion is useful when scrolling can take visible
+effect only in discrete chunks (e.g., full lines or rows) rather than
+precise pixel offsets.
+In such a case, pixel-granular scroll distances received between
+a pair of the start and stop events can be successively accumulated,
+triggering an interface update once the height of the next chunk to be
+brought up on the screen is reached or exceeded, with the remainder of
+the accrued distance to be retained in anticipation of the next scroll
+event within the motion.
+If the scroll state of the program naturally allows for updates on
+a per-pixel basis, the start and stop events can be freely ignored,
+and every scroll event may be handled independently.
+Scroll motions comprise pixel-granular scrolls only; line-granular
+scrolls are always standalone.
+At most one scroll motion can be in effect at any moment; they do not
+overlap in time.
 .PP
 The routine
 .B initmouse
 returns a structure through which one may access the mouse:
 .IP
 .EX
+.ta 4n +\w'Channel 'u +\w'*resizec;  'u
 typedef struct Mousectl Mousectl;
 struct Mousectl
 {
@@ -207,6 +279,7 @@ structure defined in
 .BR <mouse.h> :
 .IP
 .EX
+.ta 4n +\w'char 'u
 typedef struct Menu Menu;
 struct Menu
 {
