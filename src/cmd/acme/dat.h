@@ -210,6 +210,7 @@ void		textconstrain(Text*, uint, uint, uint*, uint*);
 void		textdelete(Text*, uint, uint, int);
 void		textdoubleclick(Text*, uint*, uint*);
 void		textfill(Text*);
+uint		textforwardnl(Text*, uint, uint);
 void		textframescroll(Text*, int);
 void		textinit(Text*, File*, Rectangle, Reffont*, Image**);
 void		textinsert(Text*, uint, Rune*, uint, int);
