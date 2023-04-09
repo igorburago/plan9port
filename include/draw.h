@@ -1,7 +1,7 @@
 #ifndef _DRAW_H_
 #define _DRAW_H_ 1
 #if defined(__cplusplus)
-extern "C" { 
+extern "C" {
 #endif
 
 AUTOLIB(draw)
@@ -9,19 +9,20 @@ AUTOLIB(draw)
 AUTOFRAMEWORK(Carbon)
 #endif
 
-typedef struct	Cachefont Cachefont;
-typedef struct	Cacheinfo Cacheinfo;
-typedef struct	Cachesubf Cachesubf;
-typedef struct	Display Display;
-typedef struct	Font Font;
-typedef struct	Fontchar Fontchar;
-typedef struct	Image Image;
-typedef struct	Mouse Mouse;
-typedef struct	Point Point;
-typedef struct	Rectangle Rectangle;
-typedef struct	RGB RGB;
-typedef struct	Screen Screen;
-typedef struct	Subfont Subfont;
+typedef struct Cachefont	Cachefont;
+typedef struct Cacheinfo	Cacheinfo;
+typedef struct Cachesubf	Cachesubf;
+typedef struct Display		Display;
+typedef struct Font		Font;
+typedef struct Fontchar		Fontchar;
+typedef struct Image		Image;
+typedef struct Linesnapscroll	Linesnapscroll;
+typedef struct Mouse		Mouse;
+typedef struct Point		Point;
+typedef struct RGB		RGB;
+typedef struct Rectangle	Rectangle;
+typedef struct Screen		Screen;
+typedef struct Subfont		Subfont;
 
 struct Mux;
 
@@ -110,7 +111,7 @@ typedef enum
 } Drawop;
 
 /*
- * image channel descriptors 
+ * image channel descriptors
  */
 enum {
 	CRed = 0,
@@ -205,7 +206,7 @@ struct Display
 	struct Mux	*mux;
 	int		srvfd;
 	int		dpi;
-	
+
 	Font	*firstfont;
 	Font	*lastfont;
 };
@@ -322,15 +323,28 @@ struct Font
 	Cachesubf	*subf;
 	Cachefont	**sub;	/* as read from file */
 	Image		*cacheimage;
-	
+
 	/* doubly linked list of fonts known to display */
 	int ondisplaylist;
 	Font *next;
 	Font *prev;
-	
+
 	/* on hi-dpi systems, one of these is set to f and the other is the other-dpi version of f */
 	Font	*lodpi;
 	Font	*hidpi;
+};
+
+/*
+ * State for line snapping during pixel-precise scrolling
+ */
+struct Linesnapscroll
+{
+	ushort	inmotion;	/* currently in a scroll motion */
+	ushort	inertial;	/* the scroll motion is inertial */
+	int	pendingdist;	/* signed leftover distance (in pixels) from the previous scroll in the motion */
+	ushort	motionhaltup;	/* no scrolling up this motion (and perhaps its inertial sequel) */
+	ushort	motionhaltdown;	/* same for down; set both to effectively cancel the motion */
+	uint	motionstopmsec;	/* Mouse.msec of when the last motion ended */
 };
 
 #define	Dx(r)	((r).max.x-(r).min.x)
@@ -504,7 +518,13 @@ extern void	loadhidpi(Font*);
 extern void	swapfont(Font*, Font**, Font**);
 
 /*
- * Predefined 
+ * Mouse scrolling
+ */
+extern int	mousescrollsize(int);
+extern int	mouselinesnapscroll(Linesnapscroll*, Mouse*, int);
+
+/*
+ * Predefined
  */
 extern	Point		ZP;
 extern	Rectangle	ZR;
