@@ -189,13 +189,14 @@ rpc_shutdown(void)
 
 @implementation DrawView
 {
-	NSMutableString *_tmpText;
-	NSRange _markedRange;
-	NSRange _selectedRange;
-	NSRect _lastInputRect;	// The view is flipped, this is not.
-	BOOL _tapping;
-	NSUInteger _tapFingers;
-	NSUInteger _tapTime;
+	NSMutableString	*_tmpText;
+	NSRange		_markedRange;
+	NSRange		_selectedRange;
+	NSRect		_lastInputRect;	/* the view is flipped, this is not */
+	BOOL		_tapping;
+	int		_tapFingers;
+	uint		_tapTime;
+	BOOL		_inScrollPhase;
 }
 
 - (id)init
@@ -206,6 +207,7 @@ rpc_shutdown(void)
 	_tmpText = [[NSMutableString alloc] initWithCapacity:2];
 	_markedRange = NSMakeRange(NSNotFound, 0);
 	_selectedRange = NSMakeRange(0, 0);
+	_inScrollPhase = NO;
 	return self;
 }
 
@@ -600,15 +602,49 @@ rpc_resizewindow(Client *c, Rectangle r)
 - (void)rightMouseDragged:(NSEvent*)e{ [self getmouse:e];}
 - (void)rightMouseUp:(NSEvent*)e{ [self getmouse:e];}
 
+static CGFloat
+roundhalfeven(CGFloat x)
+{
+	return nearbyint(x);
+}
+
+- (int)scrolldeltatobacking:(CGFloat)delta
+{
+	CGFloat d;
+
+	d = [self convertSizeToBacking:NSMakeSize(0, fabs(delta))].height;
+	return (int)roundhalfeven(copysign(d, delta));
+}
+
 - (void)scrollWheel:(NSEvent*)e
 {
-	CGFloat s;
+	NSEventPhase phase;
+	BOOL inertial;
+	CGFloat delta;
 
-	s = [e scrollingDeltaY];
-	if(s > 0.0f)
-		[self sendmouse:Mlinescroll scroll:-1];
-	else if (s < 0.0f)
-		[self sendmouse:Mlinescroll scroll:+1];
+	phase = e.momentumPhase;
+	inertial = (phase != NSEventPhaseNone);
+	if(!inertial)
+		phase = e.phase;
+	delta = -e.scrollingDeltaY;
+
+	if(phase != NSEventPhaseNone){
+		if(phase == NSEventPhaseBegan){
+			_inScrollPhase = YES;
+			[self sendmouse:inertial ? Mscrollinertiastart : Mscrollmotionstart];
+		}
+		if(delta != 0)
+			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta]];
+		if(_inScrollPhase && (phase==NSEventPhaseEnded || phase==NSEventPhaseCancelled)){
+			_inScrollPhase = NO;
+			[self sendmouse:inertial ? Mscrollinertiastop : Mscrollmotionstop];
+		}
+	}else if(delta != 0){
+		if(e.hasPreciseScrollingDeltas)
+			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta]];
+		else
+			[self sendmouse:Mlinescroll scroll:(int)roundhalfeven(delta)];
+	}
 }
 
 - (void)keyDown:(NSEvent*)e
