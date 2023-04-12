@@ -707,7 +707,7 @@ texttype(Text *t, Rune r)
 		n = 2*t->fr.maxlines/3;
 	case_Down:
 		q0 = t->org+frcharofpt(&t->fr, Pt(t->fr.r.min.x, t->fr.r.min.y+n*t->fr.font->height));
-		textsetorigin(t, q0, TRUE);
+		textsetorigin(t, q0);
 		return;
 	case Kup:
 		if(t->what == Tag)
@@ -723,13 +723,13 @@ texttype(Text *t, Rune r)
 		n = 2*t->fr.maxlines/3;
 	case_Up:
 		q0 = textbacknl(t, t->org, n);
-		textsetorigin(t, q0, TRUE);
+		textsetorigin(t, q0);
 		return;
 	case Khome:
 		typecommit(t);
 		if(t->org > t->iq1) {
 			q0 = textbacknl(t, t->iq1, 1);
-			textsetorigin(t, q0, TRUE);
+			textsetorigin(t, q0);
 		} else
 			textshow(t, 0, 0, FALSE);
 		return;
@@ -741,7 +741,7 @@ texttype(Text *t, Rune r)
 				t->iq1 = t->file->b.nc;
 			}
 			q0 = textbacknl(t, t->iq1, 1);
-			textsetorigin(t, q0, TRUE);
+			textsetorigin(t, q0);
 		} else
 			textshow(t, t->file->b.nc, t->file->b.nc, FALSE);
 		return;
@@ -994,7 +994,7 @@ textframescroll(Text *t, int dl)
 		else
 			textsetselect(t, selectq, t->org+t->fr.p1);
 	}
-	textsetorigin(t, q0, TRUE);
+	textsetorigin(t, q0);
 }
 
 
@@ -1101,11 +1101,8 @@ textselect(Text *t)
 void
 textshow(Text *t, uint q0, uint q1, int doselect)
 {
-	int qe;
-	int nl;
-	int tsd;
-	int nc;
-	uint q;
+	uint nc, qe, q;
+	int nl, tsd;
 
 	if(t->what != Body){
 		if(doselect)
@@ -1140,14 +1137,13 @@ textshow(Text *t, uint q0, uint q1, int doselect)
 		q = textbacknl(t, q0, nl);
 		/* avoid going backwards if trying to go forwards - long lines! */
 		if(!(q0>t->org && q<t->org))
-			textsetorigin(t, q, TRUE);
+			textsetorigin(t, q);
 		while(q0 > t->org+t->fr.nchars)
-			textsetorigin(t, t->org+1, FALSE);
+			textsetorigin(t, textforwardnl(t, t->org, 1));
 	}
 }
 
-static
-int
+static int
 region(int a, int b)
 {
 	if(a < b)
@@ -1692,23 +1688,12 @@ textforwardnl(Text *t, uint p, uint n)
 }
 
 void
-textsetorigin(Text *t, uint org, int exact)
+textsetorigin(Text *t, uint org)
 {
-	int i, a, fixup;
+	int a, fixup;
 	Rune *r;
 	uint n;
 
-	if(org>0 && !exact && textreadc(t, org-1) != '\n'){
-		/* org is an estimate of the char posn; find a newline */
-		/* don't try harder than 256 chars */
-		for(i=0; i<256 && org<t->file->b.nc; i++){
-			if(textreadc(t, org) == '\n'){
-				org++;
-				break;
-			}
-			org++;
-		}
-	}
 	a = org-t->org;
 	fixup = 0;
 	if(a>=0 && a<t->fr.nchars){

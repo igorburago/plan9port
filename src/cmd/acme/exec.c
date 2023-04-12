@@ -659,7 +659,7 @@ get(Text *et, Text *t, Text *argt, int flag1, int _0, Rune *arg, int narg)
 			q1 = nlcounttopos(u, q0, a->lq1, a->rq1);
 			textsetselect(u, q0, q1);
 			q0 = nlcounttopos(u, 0, a->lorigin, a->rorigin);
-			textsetorigin(u, q0, FALSE);
+			textsetorigin(u, textforwardnl(u, q0, 0));
 		}
 		textscrdraw(u);
 	}

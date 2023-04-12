@@ -133,7 +133,7 @@ textscroll(Text *t, int but)
 			if(p0 >= t->q1)
 				p0 = textbacknl(t, p0, 2);
 			if(oldp0 != p0)
-				textsetorigin(t, p0, FALSE);
+				textsetorigin(t, textforwardnl(t, p0, 0));
 			oldp0 = p0;
 			readmouse(mousectl);
 			continue;
@@ -143,7 +143,7 @@ textscroll(Text *t, int but)
 		else
 			p0 = t->org+frcharofpt(&t->fr, Pt(s.max.x, my));
 		if(oldp0 != p0)
-			textsetorigin(t, p0, TRUE);
+			textsetorigin(t, p0);
 		oldp0 = p0;
 		/* debounce */
 		if(first){
