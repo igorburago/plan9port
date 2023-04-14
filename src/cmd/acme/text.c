@@ -1039,15 +1039,15 @@ textselect(Text *t)
 	textsetselect(t, q0, q1);
 	flushimage(display, 1);
 	state = None;	/* what we've done; undo when possible */
-	while(mouse->buttons){
+	while(mouse->buttons != 0){
 		mouse->msec = 0;
 		b = mouse->buttons;
-		if((b&1) && (b&6)){
+		if((b&Mbutton1) && (b&(Mbutton2|Mbutton3))){
 			if(state==None && t->what==Body){
 				seq++;
 				filemark(t->w->body.file);
 			}
-			if(b & 2){
+			if(b & Mbutton2){
 				if(state==Paste && t->what==Body){
 					winundo(t->w, TRUE);
 					textsetselect(t, q0, t->q1);

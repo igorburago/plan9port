@@ -631,11 +631,11 @@ mousethread(void *v)
 
 			/* Clicks and drags on scroll bars and layout boxes. */
 			if(ptinrect(m.xy, t->scrollr)){
-				if(m.buttons == 1)
+				if(m.buttons == Mbutton1)
 					but = 1;
-				else if(m.buttons == 2)
+				else if(m.buttons == Mbutton2)
 					but = 2;
-				else if(m.buttons == 4)
+				else if(m.buttons == Mbutton3)
 					but = 3;
 				else
 					goto Continue;
@@ -677,7 +677,7 @@ mousethread(void *v)
 				wincommit(w, t);
 			else
 				textcommit(t, TRUE);
-			if(m.buttons & 1){
+			if(m.buttons & Mbutton1){
 				textselect(t);
 				if(w != nil)
 					winsettag(w);
@@ -687,10 +687,10 @@ mousethread(void *v)
 					activecol = t->col;	/* button 1 only */
 				if(w!=nil && t==&w->body)
 					activewin = w;
-			}else if(m.buttons & 2){
+			}else if(m.buttons & Mbutton2){
 				if(textselect2(t, &q0, &q1, &argt))
 					execute(t, q0, q1, FALSE, argt);
-			}else if(m.buttons & 4){
+			}else if(m.buttons & Mbutton3){
 				if(textselect3(t, &q0, &q1))
 					look3(t, q0, q1, FALSE);
 			}
