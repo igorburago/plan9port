@@ -609,7 +609,7 @@ mousethread(void *v)
 					}
 					winlock(w, 'M');
 					t->eq0 = ~0;
-					textscroll(t, but);
+					textscrclick(t, but);
 					winunlock(w);
 				}
 				goto Continue;

@@ -410,6 +410,33 @@ wintype(Window *w, Text *t, Rune r)
 }
 
 void
+winscroll(Window *w, Text *t, int lines)
+{
+	int expanding;
+
+	switch(t->what){
+	case Body:
+		textscrollnl(t, lines);
+		break;
+	case Tag:
+		if(lines == 0)
+			break;
+		/* Scroll down: expand in full; scroll up: collapse to a single line. */
+		expanding = (lines > 0);
+		if(w->tagexpand != expanding){
+			w->tagexpand = expanding;
+			if(!expanding)
+				w->taglines = 1;
+			w->tagsafe = FALSE;
+			winresize(w, w->r, TRUE, TRUE);
+			if(!expanding && t->org!=0)
+				textsetorigin(t, 0);
+		}
+		break;
+	}
+}
+
+void
 wincleartag(Window *w)
 {
 	int i, n;

@@ -105,7 +105,7 @@ scrsleep(uint dt)
 }
 
 void
-textscroll(Text *t, int but)
+textscrclick(Text *t, int but)
 {
 	uint p0, oldp0;
 	Rectangle s;
@@ -156,4 +156,28 @@ textscroll(Text *t, int but)
 	}while(mouse->buttons & (1<<(but-1)));
 	while(mouse->buttons)
 		readmouse(mousectl);
+}
+
+void
+textscrollnl(Text *t, int lines)
+{
+	uint org;
+	Point p;
+
+	if(lines == 0)
+		return;
+	if(lines < 0){
+		if(t->org == 0)
+			return;
+		org = textbacknl(t, t->org, -lines);
+	}else{
+		if(t->org == t->file->b.nc)
+			return;
+		p = t->fr.r.min;
+		p.y += (int)min(lines, t->fr.maxlines) * t->fr.font->height;
+		org = t->org + frcharofpt(&t->fr, p);
+		if(lines > t->fr.maxlines)
+			org = textforwardnl(t, org, lines-t->fr.maxlines);
+	}
+	textsetorigin(t, org);
 }
