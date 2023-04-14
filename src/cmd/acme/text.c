@@ -671,6 +671,18 @@ texttype(Text *t, Rune r)
 	nr = 1;
 	rp = &r;
 	switch(r){
+	case Kup:
+		winscroll(t->w, t, -(int)max(t->fr.maxlines/3, 1));
+		return;
+	case Kdown:
+		winscroll(t->w, t, +(int)max(t->fr.maxlines/3, 1));
+		return;
+	case Kpgup:
+		winscroll(t->w, t, -(int)max(2*t->fr.maxlines/3, 1));
+		return;
+	case Kpgdown:
+		winscroll(t->w, t, +(int)max(2*t->fr.maxlines/3, 1));
+		return;
 	case Kleft:
 		typecommit(t);
 		if(t->q0 > 0)
@@ -680,28 +692,6 @@ texttype(Text *t, Rune r)
 		typecommit(t);
 		if(t->q1 < t->file->b.nc)
 			textshow(t, t->q1+1, t->q1+1, TRUE);
-		return;
-	case Kdown:
-		if(t->what == Tag)
-			goto Tagdown;
-		n = t->fr.maxlines/3;
-		goto case_Down;
-	case Kpgdown:
-		n = 2*t->fr.maxlines/3;
-	case_Down:
-		q0 = t->org+frcharofpt(&t->fr, Pt(t->fr.r.min.x, t->fr.r.min.y+n*t->fr.font->height));
-		textsetorigin(t, q0);
-		return;
-	case Kup:
-		if(t->what == Tag)
-			goto Tagup;
-		n = t->fr.maxlines/3;
-		goto case_Up;
-	case Kpgup:
-		n = 2*t->fr.maxlines/3;
-	case_Up:
-		q0 = textbacknl(t, t->org, n);
-		textsetorigin(t, q0);
 		return;
 	case Khome:
 		typecommit(t);
@@ -749,23 +739,6 @@ texttype(Text *t, Rune r)
 	case Kcmd+'Z':	/* %-shift-Z: redo */
 	 	typecommit(t);
 		undo(t, nil, nil, FALSE, 0, nil, 0);
-		return;
-
-	Tagdown:
-		/* expand tag to show all text */
-		if(!t->w->tagexpand){
-			t->w->tagexpand = TRUE;
-			winresize(t->w, t->w->r, FALSE, TRUE);
-		}
-		return;
-
-	Tagup:
-		/* shrink tag to single line */
-		if(t->w->tagexpand){
-			t->w->tagexpand = FALSE;
-			t->w->taglines = 1;
-			winresize(t->w, t->w->r, FALSE, TRUE);
-		}
 		return;
 	}
 	if(t->what == Body){
