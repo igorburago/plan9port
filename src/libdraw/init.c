@@ -18,6 +18,8 @@ Image	*mousebuttons;
 Image	*mousesave;
 Mouse	_drawmouse;
 
+extern void	initmousescrollscaling(void);	/* see scroll.c */
+
 void
 needdisplay(void)
 {
@@ -85,6 +87,8 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 	display->screenimage = screen;
 	draw(screen, screen->r, display->white, nil, ZP);
 	flushimage(display, 1);
+
+	initmousescrollscaling();
 
 	p = getenv("visibleclicks");
 	visibleclicks = p != nil && *p == '1';

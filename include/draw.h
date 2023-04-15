@@ -530,7 +530,9 @@ extern void	swapfont(Font*, Font**, Font**);
  * Mouse scrolling
  */
 extern int	mousescrollsize(int);
-extern int	mouselinesnapscroll(Linesnapscroll*, Mouse*, int);
+extern int	mousepixelscrollscaled(int);
+extern int	mouselinescrollscaled(int, int);
+extern int	mouselinesnapscroll(Linesnapscroll*, Mouse*, int, int);
 
 /*
  * Snarf buffer
