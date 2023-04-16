@@ -448,6 +448,13 @@ plumbproc(void *arg)
 }
 */
 
+static int
+navigationkey(Rune r)
+{
+	return r==Kleft || r==Kright || r==0x01 || r==0x05 ||
+		r==Kup || r==Kdown || r==Kpgup || r==Kpgdown || r==Khome || r==Kend;
+}
+
 void
 keyboardthread(void *arg)
 {
@@ -486,26 +493,26 @@ keyboardthread(void *arg)
 			alts[KTimer].op = CHANNOP;
 			break;
 		case KKey:
-		casekeyboard:
-			typetext = rowtype(&row, r, mouse->xy);
-			t = typetext;
-			if(t!=nil && t->col!=nil && !(r==Kdown || r==Kleft || r==Kright))	/* scrolling doesn't change activecol */
-				activecol = t->col;
-			if(t!=nil && t->w!=nil)
-				t->w->body.file->curtext = &t->w->body;
-			if(timer != nil)
-				timercancel(timer);
-			if(t!=nil && t->what==Tag) {
-				timer = timerstart(500);
-				alts[KTimer].c = timer->c;
-				alts[KTimer].op = CHANRCV;
-			}else{
-				timer = nil;
-				alts[KTimer].c = nil;
-				alts[KTimer].op = CHANNOP;
-			}
-			if(nbrecv(keyboardctl->c, &r) > 0)
-				goto casekeyboard;
+			do{
+				typetext = rowtype(&row, r, mouse->xy);
+				t = typetext;
+				/* Do not change activecol if just moving around. */
+				if(t!=nil && t->col!=nil && !navigationkey(r))
+					activecol = t->col;
+				if(t!=nil && t->w!=nil)
+					t->w->body.file->curtext = &t->w->body;
+				if(timer != nil)
+					timercancel(timer);
+				if(t!=nil && t->what==Tag){
+					timer = timerstart(500);
+					alts[KTimer].c = timer->c;
+					alts[KTimer].op = CHANRCV;
+				}else{
+					timer = nil;
+					alts[KTimer].c = nil;
+					alts[KTimer].op = CHANNOP;
+				}
+			}while(nbrecv(keyboardctl->c, &r) > 0);
 			flushimage(display, 1);
 			break;
 		}
