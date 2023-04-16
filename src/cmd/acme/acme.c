@@ -607,13 +607,6 @@ mousethread(void *v)
 			w = t->w;
 			if(t==nil || m.buttons==0)
 				goto Continue;
-			but = 0;
-			if(m.buttons == 1)
-				but = 1;
-			else if(m.buttons == 2)
-				but = 2;
-			else if(m.buttons == 4)
-				but = 3;
 			barttext = t;
 
 			/* Scroll buttons, wheels, trackpad gestures, etc. */
@@ -627,8 +620,19 @@ mousethread(void *v)
 				}
 				goto Continue;
 			}
-			if(t->what==Body && ptinrect(m.xy, t->scrollr)){
-				if(but){
+
+			/* Clicks and drags on scroll bars and layout boxes. */
+			if(ptinrect(m.xy, t->scrollr)){
+				if(m.buttons == 1)
+					but = 1;
+				else if(m.buttons == 2)
+					but = 2;
+				else if(m.buttons == 4)
+					but = 3;
+				else
+					goto Continue;
+				switch(t->what){
+				case Body:
 					if(swapscrollbuttons){
 						if(but == 1)
 							but = 3;
@@ -639,23 +643,24 @@ mousethread(void *v)
 					t->eq0 = ~0;
 					textscrclick(t, but);
 					winunlock(w);
-				}
-				goto Continue;
-			}
-			if(ptinrect(m.xy, t->scrollr)){
-				if(but){
-					if(t->what == Columntag)
-						rowdragcol(&row, t->col, but);
-					else if(t->what == Tag){
-						coldragwin(t->col, t->w, but);
-						if(t->w)
-							barttext = &t->w->body;
-					}
+					break;
+				case Tag:
+					coldragwin(t->col, t->w, but);
+					if(t->w)
+						barttext = &t->w->body;
 					if(t->col)
 						activecol = t->col;
+					break;
+				case Columntag:
+					rowdragcol(&row, t->col, but);
+					if(t->col)
+						activecol = t->col;
+					break;
 				}
 				goto Continue;
 			}
+
+			/* All other clicks, chords, and drags. */
 			if(m.buttons){
 				if(w)
 					winlock(w, 'M');
