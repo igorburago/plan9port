@@ -1047,6 +1047,8 @@ textselect(Text *t)
 					state = None;
 				}else if(state != Cut){
 					cut(t, t, nil, TRUE, TRUE, nil, 0);
+					if(t->what == Tag)
+						wintagshowdot(t->w, FALSE);
 					state = Cut;
 				}
 			}else{
@@ -1056,6 +1058,8 @@ textselect(Text *t)
 					state = None;
 				}else if(state != Paste){
 					paste(t, t, nil, TRUE, FALSE, nil, 0);
+					if(t->what == Tag)
+						wintagshowdot(t->w, FALSE);
 					state = Paste;
 				}
 			}
