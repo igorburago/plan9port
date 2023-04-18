@@ -451,7 +451,7 @@ plumbproc(void *arg)
 static int
 navigationkey(Rune r)
 {
-	return r==Kleft || r==Kright || r==0x01 || r==0x05 ||
+	return r==Kleft || r==Kright || r==KctrlA || r==KctrlE ||
 		r==Kup || r==Kdown || r==Kpgup || r==Kpgdown || r==Khome || r==Kend;
 }
 

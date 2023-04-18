@@ -530,7 +530,7 @@ textbswidth(Text *t, Rune c)
 	int skipping;
 
 	/* there is known to be at least one character to erase */
-	if(c == 0x08)	/* ^H: erase character */
+	if(c == KctrlH)	/* ^H: erase character */
 		return 1;
 	q = t->q0;
 	skipping = TRUE;
@@ -541,7 +541,7 @@ textbswidth(Text *t, Rune c)
 				--q;
 			break;
 		}
-		if(c == 0x17){
+		if(c == KctrlW){	/* ^W: erase word */
 			eq = isalnum(r);
 			if(eq && skipping)	/* found one; stop skipping */
 				skipping = FALSE;
@@ -713,15 +713,15 @@ texttype(Text *t, Rune r)
 		} else
 			textshow(t, t->file->b.nc, t->file->b.nc, FALSE);
 		return;
-	case 0x01:	/* ^A: beginning of line */
+	case KctrlA:	/* ^A: beginning of line */
 		typecommit(t);
 		/* go to where ^U would erase, if not already at BOL */
 		nnb = 0;
 		if(t->q0>0 && textreadc(t, t->q0-1)!='\n')
-			nnb = textbswidth(t, 0x15);
+			nnb = textbswidth(t, KctrlU);
 		textshow(t, t->q0-nnb, t->q0-nnb, TRUE);
 		return;
-	case 0x05:	/* ^E: end of line */
+	case KctrlE:	/* ^E: end of line */
 		typecommit(t);
 		q0 = t->q0;
 		while(q0<t->file->b.nc && textreadc(t, q0)!='\n')
@@ -776,7 +776,7 @@ texttype(Text *t, Rune r)
 	}
 	textshow(t, t->q0, t->q0, 1);
 	switch(r){
-	case 0x06:	/* ^F: complete */
+	case KctrlF:	/* ^F: complete */
 	case Kins:
 		typecommit(t);
 		rp = textcomplete(t);
@@ -784,7 +784,7 @@ texttype(Text *t, Rune r)
 			return;
 		nr = runestrlen(rp);
 		break;	/* fall through to normal insertion case */
-	case 0x1B:
+	case Kesc:
 		if(t->eq0 != ~0) {
 			if(t->eq0 <= t->q0)
 				textsetselect(t, t->eq0, t->q0);
@@ -795,9 +795,9 @@ texttype(Text *t, Rune r)
 			typecommit(t);
 		t->iq1 = t->q0;
 		return;
-	case 0x08:	/* ^H: erase character */
-	case 0x15:	/* ^U: erase line */
-	case 0x17:	/* ^W: erase word */
+	case KctrlH:	/* ^H: erase character */
+	case KctrlU:	/* ^U: erase line */
+	case KctrlW:	/* ^W: erase word */
 		if(t->q0 == 0)	/* nothing to erase */
 			return;
 		nnb = textbswidth(t, r);
@@ -841,7 +841,7 @@ texttype(Text *t, Rune r)
 	case '\n':
 		if(t->w->autoindent){
 			/* find beginning of previous line using backspace code */
-			nnb = textbswidth(t, 0x15); /* ^U case */
+			nnb = textbswidth(t, KctrlU);
 			rp = runemalloc(nnb + 1);
 			nr = 0;
 			rp[nr++] = r;
