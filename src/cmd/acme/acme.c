@@ -507,12 +507,20 @@ keyboardthread(void *v)
 	}
 }
 
+static Window*
+winof(Text *t)
+{
+	if(t == nil)
+		return nil;
+	return t->w;
+}
+
 void
 mousethread(void *v)
 {
 	Text *t, *argt;
 	uint q0, q1;
-	Window *w;
+	Window *w, *mw;
 	Plumbmsg *pm;
 	int samewin;
 	Mouse m;
@@ -577,34 +585,34 @@ mousethread(void *v)
 			m = mousectl->m;
 			qlock(&row.lk);
 			t = rowwhich(&row, m.xy);
+			w = winof(t);
 
-			if(t!=mousetext && t!=nil && t->w!=nil){
-				samewin = (mousetext!=nil && mousetext->w!=nil && mousetext->w->id==t->w->id);
-				if(!samewin)
-					xfidlog(t->w, "focus");
-				/*
-				 * In case mouse comes from another window or the other part
-				 * (tag or body) of the same window during a scroll motion,
-				 * do not carry over pending scroll, but do allow the motion
-				 * to go on in the new quarters if it is not inertial.
-				 */
-				if(scroll.inmotion && (!samewin || t->what!=mousetext->what)){
-					scroll.pendingdist = 0;
-					scroll.motionhaltup = scroll.inertial;
-					scroll.motionhaltdown = scroll.inertial;
+			if(t != mousetext){
+				mw = winof(mousetext);
+				if(w != nil){
+					samewin = (mw!=nil && mw->id==w->id);
+					if(!samewin)
+						xfidlog(w, "focus");
+					/*
+					 * In case mouse comes from another window or the other part
+					 * (tag or body) of the same window during a scroll motion,
+					 * do not carry over pending scroll, but do allow the motion
+					 * to go on in the new quarters if it is not inertial.
+					 */
+					if(scroll.inmotion && (!samewin || t->what!=mousetext->what)){
+						scroll.pendingdist = 0;
+						scroll.motionhaltup = scroll.inertial;
+						scroll.motionhaltdown = scroll.inertial;
+					}
+				}
+				if(mw != nil){
+					winlock(mw, 'M');
+					mousetext->eq0 = ~0;
+					wincommit(mw, mousetext);
+					winunlock(mw);
 				}
 			}
-
-			if(t!=mousetext && mousetext!=nil && mousetext->w!=nil){
-				winlock(mousetext->w, 'M');
-				mousetext->eq0 = ~0;
-				wincommit(mousetext->w, mousetext);
-				winunlock(mousetext->w);
-			}
 			mousetext = t;
-			if(t == nil)
-				goto Continue;
-			w = t->w;
 			if(t==nil || m.buttons==0)
 				goto Continue;
 			barttext = t;
@@ -649,15 +657,12 @@ mousethread(void *v)
 					if(m.xy.y >= t->scrollr.min.y+t->fr.font->height)
 						goto Textclicks;
 					coldragwin(t->col, t->w, but);
-					if(t->w)
-						barttext = &t->w->body;
-					if(t->col)
-						activecol = t->col;
+					barttext = &t->w->body;
+					activecol = t->col;
 					break;
 				case Columntag:
 					rowdragcol(&row, t->col, but);
-					if(t->col)
-						activecol = t->col;
+					activecol = t->col;
 					break;
 				}
 				goto Continue;
@@ -665,36 +670,34 @@ mousethread(void *v)
 
 		Textclicks:
 			/* All other clicks, chords, and drags. */
-			if(m.buttons){
-				if(w)
-					winlock(w, 'M');
-				t->eq0 = ~0;
-				if(w)
-					wincommit(w, t);
-				else
-					textcommit(t, TRUE);
-				if(m.buttons & 1){
-					textselect(t);
-					if(w)
-						winsettag(w);
-					argtext = t;
-					seltext = t;
-					if(t->col)
-						activecol = t->col;	/* button 1 only */
-					if(t->w!=nil && t==&t->w->body)
-						activewin = t->w;
-				}else if(m.buttons & 2){
-					if(textselect2(t, &q0, &q1, &argt))
-						execute(t, q0, q1, FALSE, argt);
-				}else if(m.buttons & 4){
-					if(textselect3(t, &q0, &q1))
-						look3(t, q0, q1, FALSE);
-				}
-				if(w)
-					winunlock(w);
-				goto Continue;
+			if(w != nil)
+				winlock(w, 'M');
+			t->eq0 = ~0;
+			if(w != nil)
+				wincommit(w, t);
+			else
+				textcommit(t, TRUE);
+			if(m.buttons & 1){
+				textselect(t);
+				if(w != nil)
+					winsettag(w);
+				argtext = t;
+				seltext = t;
+				if(t->col != nil)
+					activecol = t->col;	/* button 1 only */
+				if(w!=nil && t==&w->body)
+					activewin = w;
+			}else if(m.buttons & 2){
+				if(textselect2(t, &q0, &q1, &argt))
+					execute(t, q0, q1, FALSE, argt);
+			}else if(m.buttons & 4){
+				if(textselect3(t, &q0, &q1))
+					look3(t, q0, q1, FALSE);
 			}
-    Continue:
+			if(w != nil)
+				winunlock(w);
+
+		Continue:
 			qunlock(&row.lk);
 			break;
 		}
