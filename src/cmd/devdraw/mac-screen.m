@@ -608,6 +608,17 @@ roundhalfeven(CGFloat x)
 	return nearbyint(x);
 }
 
+static int
+scrolldeltatoint(CGFloat delta)
+{
+	int d;
+
+	d = (int)roundhalfeven(delta);
+	if(d == 0)
+		d = (delta > 0) - (delta < 0);
+	return d;
+}
+
 - (int)scrolldeltatobacking:(CGFloat)delta
 {
 	CGFloat d;
@@ -643,7 +654,7 @@ roundhalfeven(CGFloat x)
 		if(e.hasPreciseScrollingDeltas)
 			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta]];
 		else
-			[self sendmouse:Mlinescroll scroll:(int)roundhalfeven(delta)];
+			[self sendmouse:Mlinescroll scroll:scrolldeltatoint(delta)];
 	}
 }
 
