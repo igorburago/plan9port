@@ -784,7 +784,9 @@ rowload(Row *row, char *file, int initing)
 			winsettag(w);
 		}else if(dumpid==0 && r[ns+1]!='+' && r[ns+1]!='-')
 			get(&w->body, nil, nil, FALSE, XXX, nil, 0);
-		if(fontr){
+		w->tagsafe = FALSE;
+		winresize(w, w->r, TRUE, TRUE);
+		if(fontr != nil){
 			fontx(&w->body, nil, nil, 0, 0, fontr, nfontr);
 			free(fontr);
 		}
@@ -794,7 +796,7 @@ rowload(Row *row, char *file, int initing)
 		textshow(&w->body, q0, q1, 1);
 		w->maxlines = min(w->body.fr.nlines, max(w->maxlines, w->body.fr.maxlines));
 		xfidlog(w, "new");
-Nextline:
+	Nextline:
 		l = rdline(b, &line);
 	}
 	Bterm(b);
