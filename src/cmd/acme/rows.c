@@ -287,13 +287,6 @@ rowtype(Row *row, Rune r, Point p)
 		else{
 			winlock(w, 'K');
 			wintype(w, t, r);
-			/* Expand tag if necessary */
-			if(t->what == Tag){
-				t->w->tagsafe = FALSE;
-				if(r == '\n')
-					t->w->tagexpand = TRUE;
-				winresize(w, w->r, TRUE, TRUE);
-			}
 			winunlock(w);
 		}
 	}

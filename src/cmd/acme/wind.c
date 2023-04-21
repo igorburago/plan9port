@@ -399,6 +399,60 @@ winsetname(Window *w, Rune *name, int n)
 	}
 }
 
+static int
+dotisfullyabove(Text *t)
+{
+	return t->q0<t->org && t->q1<=t->org;
+}
+
+static int
+dotisfullybelow(Text *t)
+{
+	uint belowq;
+
+	belowq = t->org + t->fr.nchars;
+	return t->q0>=belowq && t->q1>belowq;
+}
+
+void
+wintagshowdot(Window *w, int forceexpand)
+{
+	Text *t;
+	int above;
+
+	/*
+	 * We do not expand a collapsed tag unless the dot goes out of sight,
+	 * by design. However, if a tag is expanded, we invoke a resize even
+	 * if the dot is in sight: a deleted or typed character, or cut or
+	 * pasted text may have caused the tag to underflow or overflow.
+	 */
+	t = &w->tag;
+	if(forceexpand || w->tagexpand || dotisfullybelow(t)){
+		w->tagexpand = TRUE;
+		w->tagsafe = FALSE;
+		winresize(w, w->r, TRUE, TRUE);
+	}
+	above = 0;
+	if(dotisfullyabove(t)){
+		textsetorigin(t, t->q1);
+		above = 3*t->fr.maxlines/4;
+	}else if(dotisfullybelow(t)){
+		textsetorigin(t, t->q0);
+		if(t->fr.maxlines >= 4)
+			above = t->fr.maxlines/4;
+		else if(t->fr.maxlines > 1)
+			above = 1;
+	}
+	if(above > 0)
+		textscrollnl(t, -above, FALSE);
+}
+
+static int
+scrollingkey(Rune r)
+{
+	return r==Kup || r==Kdown || r==Kpgup || r==Kpgdown || r==Khome || r==Kend;
+}
+
 void
 wintype(Window *w, Text *t, Rune r)
 {
@@ -409,6 +463,8 @@ wintype(Window *w, Text *t, Rune r)
 		for(i=0; i<t->file->ntext; i++)
 			textscrdraw(t->file->text[i]);
 	winsettag(w);
+	if(t->what==Tag && !scrollingkey(r))
+		wintagshowdot(w, r=='\n');
 
 	/* As soon as typing starts, cancel any inertial scrolling in progress. */
 	if(mousescroll.inmotion && mousescroll.inertial){

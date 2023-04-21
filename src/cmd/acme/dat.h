@@ -300,6 +300,7 @@ void	winscroll(Window*, Text*, int);
 void	winsetname(Window*, Rune*, int);
 void	winsettag(Window*);
 void	winsettag1(Window*);
+void	wintagshowdot(Window*, int);
 void	wintype(Window*, Text*, Rune);
 void	winundo(Window*, int);
 void	winunlock(Window*);
