@@ -924,30 +924,39 @@ framescroll(Frame *f, int dl)
 void
 textframescroll(Text *t, int dl)
 {
-	uint q0;
+	uint q0, dragq;
+	Point p;
 
 	if(dl == 0){
 		scrsleep(100);
 		return;
 	}
 	if(dl < 0){
+		if(t->org == 0)
+			return;
 		q0 = textbacknl(t, t->org, -dl);
-		if(selectq > t->org+t->fr.p0)
-			textsetselect(t, t->org+t->fr.p0, selectq);
-		else
-			textsetselect(t, selectq, t->org+t->fr.p0);
+		dragq = t->org + t->fr.p0;
 	}else{
+		if(t->what==Tag && !t->w->tagexpand){
+			textsetselect(t, t->org+t->fr.p0, t->org+t->fr.p1);
+			t->w->tagexpand = TRUE;
+			t->w->tagsafe = FALSE;
+			winresize(t->w, t->w->r, TRUE, TRUE);
+			return;
+		}
 		if(t->org+t->fr.nchars == t->file->b.nc)
 			return;
-		q0 = t->org+frcharofpt(&t->fr, Pt(t->fr.r.min.x, t->fr.r.min.y+dl*t->fr.font->height));
-		if(selectq > t->org+t->fr.p1)
-			textsetselect(t, t->org+t->fr.p1, selectq);
-		else
-			textsetselect(t, selectq, t->org+t->fr.p1);
+		p = t->fr.r.min;
+		p.y += dl * t->fr.font->height;
+		q0 = t->org + frcharofpt(&t->fr, p);
+		dragq = t->org + t->fr.p1;
 	}
+	if(dragq < selectq)
+		textsetselect(t, dragq, selectq);
+	else
+		textsetselect(t, selectq, dragq);
 	textsetorigin(t, q0);
 }
-
 
 void
 textselect(Text *t)

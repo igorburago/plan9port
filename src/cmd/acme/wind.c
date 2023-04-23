@@ -206,19 +206,25 @@ winresize(Window *w, Rectangle r, int safe, int keepextra)
 		y = w->tag.fr.r.max.y;
 		windrawbutton(w);
 		w->tagsafe = TRUE;
-
-		/* If mouse is in tag, pull up as tag closes. */
-		if(mouseintag && !ptinrect(mouse->xy, w->tag.all)){
-			p = mouse->xy;
-			p.y = w->tag.all.max.y-3;
-			moveto(mousectl, p);
-		}
-
-		/* If mouse is in body, push down as tag expands. */
-		if(mouseinbody && ptinrect(mouse->xy, w->tag.all)){
-			p = mouse->xy;
-			p.y = w->tag.all.max.y+3;
-			moveto(mousectl, p);
+		/*
+		 * As the tag expands or collapses, take the mouse cursor along.
+		 * However, if we are expanding the tag because of an ongoing
+		 * mouse drag during text selection, do not interfere with it
+		 * (see text.c:/^textselect\(/ and text.c:/^textframescroll/).
+		 */
+		if(w->tag.fr.scroll == nil){
+			/* If mouse is in the tag, pull it up as the tag collapses. */
+			if(mouseintag && !ptinrect(mouse->xy, w->tag.all)){
+				p = mouse->xy;
+				p.y = w->tag.all.max.y-3;
+				moveto(mousectl, p);
+			}
+			/* If mouse is in the body, push it down as the tag expands. */
+			if(mouseinbody && ptinrect(mouse->xy, w->tag.all)){
+				p = mouse->xy;
+				p.y = w->tag.all.max.y+3;
+				moveto(mousectl, p);
+			}
 		}
 	}
 
