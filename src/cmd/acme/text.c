@@ -523,6 +523,15 @@ textreadc(Text *t, uint q)
 }
 
 int
+textendswithnl(Text *t)
+{
+	Buffer *b;
+
+	b = &t->file->b;
+	return b->nc>0 && textreadc(t, b->nc-1)=='\n';
+}
+
+int
 textbswidth(Text *t, Rune c)
 {
 	uint q, eq;
@@ -924,38 +933,25 @@ framescroll(Frame *f, int dl)
 void
 textframescroll(Text *t, int dl)
 {
-	uint q0, dragq;
-	Point p;
+	uint dragq;
 
 	if(dl == 0){
 		scrsleep(100);
 		return;
 	}
-	if(dl < 0){
-		if(t->org == 0)
-			return;
-		q0 = textbacknl(t, t->org, -dl);
-		dragq = t->org + t->fr.p0;
-	}else{
-		if(t->what==Tag && !t->w->tagexpand){
-			textsetselect(t, t->org+t->fr.p0, t->org+t->fr.p1);
-			t->w->tagexpand = TRUE;
-			t->w->tagsafe = FALSE;
-			winresize(t->w, t->w->r, TRUE, TRUE);
-			return;
-		}
-		if(t->org+t->fr.nchars == t->file->b.nc)
-			return;
-		p = t->fr.r.min;
-		p.y += dl * t->fr.font->height;
-		q0 = t->org + frcharofpt(&t->fr, p);
-		dragq = t->org + t->fr.p1;
+	if(dl>0 && t->what==Tag && !t->w->tagexpand){
+		textsetselect(t, t->org+t->fr.p0, t->org+t->fr.p1);
+		t->w->tagexpand = TRUE;
+		t->w->tagsafe = FALSE;
+		winresize(t->w, t->w->r, TRUE, TRUE);
+		return;
 	}
+	dragq = t->org + (dl<0 ? t->fr.p0 : t->fr.p1);
+	textscrollnl(t, dl, FALSE);
 	if(dragq < selectq)
 		textsetselect(t, dragq, selectq);
 	else
 		textsetselect(t, selectq, dragq);
-	textsetorigin(t, q0);
 }
 
 void

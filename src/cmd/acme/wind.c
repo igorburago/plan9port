@@ -140,7 +140,6 @@ int
 wintaglines(Window *w, Rectangle r)
 {
 	int n;
-	Rune rune;
 	Point p;
 
 	if(!w->tagexpand && !w->showdel)
@@ -151,13 +150,13 @@ wintaglines(Window *w, Rectangle r)
 	w->tag.fr.noredraw = 0;
 	w->tagsafe = FALSE;
 
-	if(!w->tagexpand) {
+	if(!w->tagexpand){
 		/* use just as many lines as needed to show the Del */
 		n = delrunepos(w);
 		if(n < 0)
 			return 1;
 		p = subpt(frptofchar(&w->tag.fr, n), w->tag.fr.r.min);
-		return 1 + p.y / w->tag.fr.font->height;
+		return 1 + p.y/w->tag.fr.font->height;
 	}
 
 	/* can't use more than we have */
@@ -166,11 +165,8 @@ wintaglines(Window *w, Rectangle r)
 
 	/* if tag ends with \n, include empty line at end for typing */
 	n = w->tag.fr.nlines;
-	if(w->tag.file->b.nc > 0){
-		bufread(&w->tag.file->b, w->tag.file->b.nc-1, &rune, 1);
-		if(rune == '\n')
-			n++;
-	}
+	if(textendswithnl(&w->tag))
+		n++;
 	if(n == 0)
 		n = 1;
 	return n;
@@ -424,25 +420,49 @@ wintype(Window *w, Text *t, Rune r)
 void
 winscroll(Window *w, Text *t, int lines)
 {
-	int expanding;
-
 	switch(t->what){
 	case Body:
-		textscrollnl(t, lines);
+		textscrollnl(t, lines, TRUE);
 		break;
 	case Tag:
-		if(lines == 0)
-			break;
-		/* Scroll down: expand in full; scroll up: collapse to a single line. */
-		expanding = (lines > 0);
-		if(w->tagexpand != expanding){
-			w->tagexpand = expanding;
-			if(!expanding)
+		if(lines < 0){
+			/*
+			 * Scrolling up: collapse the tag if it is expanded and its viewport
+			 * is at the very top; otherwise, scroll it up as usual. If a mouse
+			 * scroll motion brings us to the top, cancel it so that the rest of
+			 * its events will not reach this code, thus preventing the user from
+			 * accidentally collapsing a tag while scrolling it up.
+			 */
+			if(t->org != 0){
+				textscrollnl(t, lines, FALSE);
+				if(mousescroll.inmotion && t->org==0)
+					mousescroll.motionhaltup = TRUE;
+			}else if(w->tagexpand && w->taglines>1){
+				w->tagexpand = FALSE;
 				w->taglines = 1;
-			w->tagsafe = FALSE;
-			winresize(w, w->r, TRUE, TRUE);
-			if(!expanding && t->org!=0)
-				textsetorigin(t, 0);
+				w->tagsafe = FALSE;
+				winresize(w, w->r, TRUE, TRUE);
+			}
+			if(mousescroll.inmotion)
+				mousescroll.motionhaltdown = FALSE;
+		}else if(lines > 0){
+			/*
+			 * Scrolling down: expand the tag if it is collapsed; otherwise,
+			 * scroll it down as usual. If the tag is expanded by a mouse scroll
+			 * motion, cancel it so that the rest of its events will not reach
+			 * this code, thus preventing the user from accidentally scrolling
+			 * a long tag down while trying to simply expand it.
+			 */
+			if(!w->tagexpand){
+				w->tagexpand = TRUE;
+				w->tagsafe = FALSE;
+				winresize(w, w->r, TRUE, TRUE);
+				if(mousescroll.inmotion)
+					mousescroll.motionhaltdown = TRUE;
+			}else if(w->taglines > 1)
+				textscrollnl(t, lines, FALSE);
+			if(mousescroll.inmotion)
+				mousescroll.motionhaltup = FALSE;
 		}
 		break;
 	}

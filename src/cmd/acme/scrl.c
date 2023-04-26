@@ -159,25 +159,34 @@ textscrclick(Text *t, int but)
 }
 
 void
-textscrollnl(Text *t, int lines)
+textscrollnl(Text *t, int lines, int scrollpastend)
 {
 	uint org;
 	Point p;
+	int n;
 
-	if(lines == 0)
-		return;
 	if(lines < 0){
 		if(t->org == 0)
 			return;
 		org = textbacknl(t, t->org, -lines);
-	}else{
-		if(t->org == t->file->b.nc)
+		textsetorigin(t, org);
+	}else if(lines > 0){
+		if(scrollpastend ? t->org==t->file->b.nc : !t->fr.lastlinefull)
 			return;
 		p = t->fr.r.min;
 		p.y += (int)min(lines, t->fr.maxlines) * t->fr.font->height;
 		org = t->org + frcharofpt(&t->fr, p);
 		if(lines > t->fr.maxlines)
 			org = textforwardnl(t, org, lines-t->fr.maxlines);
+		textsetorigin(t, org);
+		if(!scrollpastend && !t->fr.lastlinefull){
+			n = t->fr.maxlines - t->fr.nlines;
+			if(textendswithnl(t))
+				n--;
+			if(n > 0){
+				org = textbacknl(t, t->org, n);
+				textsetorigin(t, org);
+			}
+		}
 	}
-	textsetorigin(t, org);
 }
