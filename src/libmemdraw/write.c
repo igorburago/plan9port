@@ -26,9 +26,10 @@ writememimage(int fd, Memimage *i)
 	int h;					/* hash value */
 	uchar *line, *eline;			/* input line, end pointer */
 	uchar *data, *edata;			/* input buffer, end pointer */
-	u32int n;				/* length of input buffer */
-	u32int nb;				/* # of bytes returned by unloadimage */
+	long n;					/* length of input buffer */
+	int nb;					/* # of bytes returned by unloadmemimage */
 	int bpl;				/* input line length */
+	int lpu;				/* max # of lines per unload call */
 	int offs, runlen;			/* offset, length of consumed data */
 	uchar dumpbuf[NDUMP];			/* dump accumulator */
 	int ndump;				/* length of dump accumulator */
@@ -55,16 +56,19 @@ writememimage(int fd, Memimage *i)
 		free(chain);
 		return -1;
 	}
+	lpu = CHUNK/bpl;
+	if(lpu < 1)
+		lpu = 1;
 	for(miny = r.min.y; miny != r.max.y; miny += dy){
 		dy = r.max.y-miny;
-		if(dy*bpl > CHUNK)
-			dy = CHUNK/bpl;
+		if(dy > lpu)
+			dy = lpu;
 		nb = unloadmemimage(i, Rect(r.min.x, miny, r.max.x, miny+dy),
 			data+(miny-r.min.y)*bpl, dy*bpl);
 		if(nb != dy*bpl)
 			goto ErrOut;
 	}
-	sprint(hdr, "compressed\n%11s %11d %11d %11d %11d ",
+	snprint(hdr, sizeof(hdr), "compressed\n%11s %11d %11d %11d %11d ",
 		chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
 	if(write(fd, hdr, 11+5*12) != 11+5*12)
 		goto ErrOut;
@@ -170,7 +174,7 @@ writememimage(int fd, Memimage *i)
 		if(loutp == outbuf)
 			goto ErrOut;
 		n = loutp-outbuf;
-		sprint(hdr, "%11d %11ld ", r.max.y, n);
+		snprint(hdr, sizeof(hdr), "%11d %11ld ", r.max.y, n);
 		write(fd, hdr, 2*12);
 		write(fd, outbuf, n);
 		r.min.y = r.max.y;
