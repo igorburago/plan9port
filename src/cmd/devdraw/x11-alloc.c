@@ -19,9 +19,9 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	XImage *xi;
 
 	m = _allocmemimage(r, chan);
-	if(chan != GREY1 && chan != _x.chan)
+	if(chan!=GREY1 && chan!=_x.chan)
 		return m;
-	if(_x.display == 0 || _x.windows == nil)
+	if(_x.display==nil || _x.windows==nil)
 		return m;
 
 	/*
@@ -55,9 +55,9 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	 * We want to align pixels on word boundaries.
 	 */
 	if(m->depth == 24)
-		offset = r.min.x&3;
+		offset = r.min.x & 3;
 	else
-		offset = r.min.x&(31/m->depth);
+		offset = r.min.x & (31/m->depth);
 	r.min.x -= offset;
 	assert(wordsperline(r, m->depth) <= m->width);
 
@@ -81,7 +81,7 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	 * Set the XImage parameters so that it looks exactly like
 	 * a Memimage -- we're using the same data.
 	 */
-	if(m->depth < 8 || m->depth == 24)
+	if(m->depth<8 || m->depth==24)
 		xi->bitmap_unit = 8;
 	else
 		xi->bitmap_unit = m->depth;
@@ -91,7 +91,7 @@ _xallocmemimage(Rectangle r, u32int chan, int pixmap)
 	XInitImage(xi);
 	XFlush(_x.display);
 
-	m->X = xm;
+	m->userdata = xm;
 	return m;
 }
 
@@ -109,15 +109,15 @@ freememimage(Memimage *m)
 	if(m == nil)
 		return;
 
-	xm = m->X;
-	if(xm && m->data->ref == 1){
-		if(xm->xi){
+	xm = m->userdata;
+	if(xm!=nil && m->data->ref==1){
+		if(xm->xi != nil){
 			xm->xi->data = nil;
 			XFree(xm->xi);
 		}
 		XFreePixmap(_x.display, xm->pixmap);
 		free(xm);
-		m->X = nil;
+		m->userdata = nil;
 	}
 	_freememimage(m);
 }

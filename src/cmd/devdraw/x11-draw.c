@@ -50,7 +50,7 @@ xdraw(Memdrawparam *par)
 	Xmem *xdst, *xmask;
 	XGC gc;
 
-	if(par->dst->X == nil)
+	if(par->dst->userdata == nil)
 		return 0;
 
 	dst   = par->dst;
@@ -78,12 +78,12 @@ xdraw(Memdrawparam *par)
 	 * a buggy X server that sometimes drops the XCopyArea
 	 * requests on the floor.
 	m = Simplemask|Fullmask;
-	if((state&(m|Replsrc))==m && src->chan==dst->chan && src->X){
+	if((state&(m|Replsrc))==m && src->chan==dst->chan && src->userdata!=nil){
 		Xmem *xsrc;
 		Point sp;
 
-		xdst = dst->X;
-		xsrc = src->X;
+		xdst = dst->userdata;
+		xsrc = src->userdata;
 		dp = subpt(r.min,       dst->r.min);
 		sp = subpt(par->sr.min, src->r.min);
 		gc = dst->chan==GREY1 ?  _x.gccopy0 : _x.gccopy;
@@ -99,10 +99,10 @@ xdraw(Memdrawparam *par)
 	 * If no source alpha, a 1-bit mask, and a simple source,
 	 * we can copy through the mask onto the destination.
 	 */
-	if(dst->X && mask->X && !(mask->flags&Frepl)
+	if(dst->userdata!=nil && mask->userdata!=nil && !(mask->flags&Frepl)
 	&& mask->chan==GREY1 && (state&Simplesrc)){
-		xdst = dst->X;
-		xmask = mask->X;
+		xdst = dst->userdata;
+		xmask = mask->userdata;
 		sdval = par->sdval;
 
 		dp = subpt(r.min, dst->r.min);

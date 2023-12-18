@@ -9,9 +9,9 @@ void
 memfillcolor(Memimage *m, u32int val)
 {
 	_memfillcolor(m, val);
-	if(m->X == nil)
+	if(m->userdata == nil)
 		return;
-	if((val & 0xFF) == 0xFF)	/* full alpha */
+	if((val&0xFF) == 0xFF)	/* full alpha */
 		_xfillcolor(m, m->r, _rgbatoimg(m, val));
 	else
 		_xputxdata(m, m->r);
@@ -24,8 +24,9 @@ _xfillcolor(Memimage *m, Rectangle r, u32int v)
 	Xmem *xm;
 	XGC gc;
 
-	xm = m->X;
-	assert(xm != nil);
+	xm = m->userdata;
+	if(xm == nil)
+		return;
 
 	/*
 	 * Set up fill context appropriately.
@@ -37,7 +38,7 @@ _xfillcolor(Memimage *m, Rectangle r, u32int v)
 			_x.gcfill0color = v;
 		}
 	}else{
-		if(m->chan == CMAP8 && _x.usetable)
+		if(m->chan==CMAP8 && _x.usetable)
 			v = _x.tox11[v];
 		gc = _x.gcfill;
 		if(_x.gcfillcolor != v){

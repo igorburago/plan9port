@@ -58,7 +58,7 @@ allocmemimaged(Rectangle r, u32int chan, Memdata *md)
 	}
 
 	i->data = md;
-	i->X = nil;
+	i->userdata = nil;
 	return i;
 }
 

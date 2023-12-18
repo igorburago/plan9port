@@ -22,7 +22,7 @@ _xgetxdata(Memimage *m, Rectangle r)
 	Point tp, xdelta, delta;
 	Xmem *xm;
 
-	xm = m->X;
+	xm = m->userdata;
 	if(xm == nil)
 		return nil;
 
@@ -63,7 +63,7 @@ _xputxdata(Memimage *m, Rectangle r)
 	XGC gc;
 	XImage *xi;
 
-	xm = m->X;
+	xm = m->userdata;
 	if(xm == nil)
 		return;
 
@@ -96,7 +96,7 @@ _xdirtyxdata(Memimage *m, Rectangle r)
 {
 	Xmem *xm;
 
-	xm = m->X;
+	xm = m->userdata;
 	if(xm == nil)
 		return;
 
