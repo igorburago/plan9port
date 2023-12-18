@@ -21,7 +21,7 @@ memimagemove(void *from, void *to)
 }
 
 Memimage*
-allocmemimaged(Rectangle r, u32int chan, Memdata *md, void *X)
+allocmemimaged(Rectangle r, u32int chan, Memdata *md)
 {
 	int depth;
 	Memimage *i;
@@ -58,7 +58,7 @@ allocmemimaged(Rectangle r, u32int chan, Memdata *md, void *X)
 	}
 
 	i->data = md;
-	i->X = X;
+	i->X = nil;
 	return i;
 }
 
@@ -96,7 +96,7 @@ _allocmemimage(Rectangle r, u32int chan)
 	md->alloc->md = md;
 	md->bdata = (uchar*)md->alloc->words;	/* if this changes, memimagemove must change too */
 
-	i = allocmemimaged(r, chan, md, nil);
+	i = allocmemimaged(r, chan, md);
 	if(i == nil){
 		poolfree(imagmem, md->alloc);
 		free(md);

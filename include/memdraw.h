@@ -132,7 +132,7 @@ struct	Memdrawparam
  */
 
 extern Memimage*	allocmemimage(Rectangle, u32int);
-extern Memimage*	allocmemimaged(Rectangle, u32int, Memdata*, void*);
+extern Memimage*	allocmemimaged(Rectangle, u32int, Memdata*);
 extern Memimage*	readmemimage(int);
 extern Memimage*	creadmemimage(int);
 extern int		writememimage(int, Memimage*);
