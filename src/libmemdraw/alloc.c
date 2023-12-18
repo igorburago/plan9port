@@ -102,7 +102,6 @@ _allocmemimage(Rectangle r, u32int chan)
 		free(md);
 		return nil;
 	}
-	md->imref = i;
 	return i;
 }
 

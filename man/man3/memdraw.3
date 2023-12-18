@@ -62,7 +62,6 @@ typedef struct Memdata
 	uchar	*bdata;	/* pointer to first byte of actual data; word-aligned */
 	int	allocd;	/* is this malloc'd? */
 	int	ref;	/* number of Memimages using this data */
-	void	*imref;	/* last image that pointed at this */
 } Memdata;
 .PP
 .ft L
