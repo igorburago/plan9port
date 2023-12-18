@@ -1,37 +1,45 @@
 #ifndef _MEMDRAW_H_
 #define _MEMDRAW_H_ 1
 #if defined(__cplusplus)
-extern "C" { 
+extern "C" {
 #endif
 
 AUTOLIB(memdraw)
 AUTOLIB(memlayer)
 
-typedef struct	Memimage Memimage;
-typedef struct	Memdata Memdata;
-typedef struct	Memsubfont Memsubfont;
-typedef struct	Memlayer Memlayer;
-typedef struct	Memcmap Memcmap;
-typedef struct	Memdrawparam	Memdrawparam;
+typedef struct Memalloc		Memalloc;
+typedef struct Memdata		Memdata;
+typedef struct Memimage		Memimage;
+typedef struct Memsubfont	Memsubfont;
+typedef struct Memlayer		Memlayer;
+typedef struct Memcmap		Memcmap;
+typedef struct Memdrawparam	Memdrawparam;
 
 /*
- * Memdata is allocated from main pool, but .data from the image pool.
- * Memdata is allocated separately to permit patching its pointer after
- * compaction when windows share the image data.
- * The first word of data is a back pointer to the Memdata, to find
- * The word to patch.
+ * Memimage is allocated from the main pool, but its .data from the image pool.
+ * Memdata is allocated separately to permit patching its pointer after compaction
+ * when windows share the image data. Memalloc includes a pointer back to the
+ * Memdata next to the allocation itself to locate the word to patch.
  */
+
+struct Memalloc
+{
+	Memdata	*md;		/* back pointer to the Memdata this allocation belongs to */
+	uintptr	pc;		/* return PC of the allocmemimage() call that made this allocation */
+	u32int	words[1];	/* flexible array member for the actual data words that follow */
+};
 
 struct Memdata
 {
-	u32int	*base;	/* allocated data pointer */
-	uchar	*bdata;	/* pointer to first byte of actual data; word-aligned */
-	int	ref;	/* number of Memimages using this data */
-	void*	imref;
-	int	allocd;	/* is this malloc'd? */
+	Memalloc	*alloc;	/* allocated data */
+	uchar		*bdata;	/* pointer to first byte of actual data; word-aligned */
+	int		allocd;	/* is this malloc'd? */
+	int		ref;	/* number of Memimages using this data */
+	void		*imref;	/* last image that pointed at this */
 };
 
-enum {
+enum
+{
 	Frepl	= 1<<0,	/* is replicated */
 	Fsimple	= 1<<1,	/* is 1x1 */
 	Fgrey	= 1<<2,	/* is grey */
@@ -93,7 +101,8 @@ struct	Memsubfont
 /*
  * Encapsulated parameters and information for sub-draw routines.
  */
-enum {
+enum
+{
 	Simplesrc=1<<0,
 	Simplemask=1<<1,
 	Replsrc=1<<2,
@@ -143,7 +152,7 @@ extern u32int		pixelbits(Memimage*, Point);
 /*
  * Graphics
  */
-extern void	memdraw(Memimage*, Rectangle, Memimage*, Point, 
+extern void	memdraw(Memimage*, Rectangle, Memimage*, Point,
 			Memimage*, Point, int);
 extern void	memline(Memimage*, Point, Point, int, int, int,
 			Memimage*, Point, int);
@@ -180,7 +189,7 @@ extern void		freememsubfont(Memsubfont*);
 extern Point		memsubfontwidth(Memsubfont*, char*);
 
 /*
- * Predefined 
+ * Predefined
  */
 extern	Memimage*	memwhite;
 extern	Memimage*	memblack;

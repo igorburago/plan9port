@@ -45,40 +45,58 @@ hwdraw \- drawing routines for memory-resident images
 .B #include <memdraw.h>
 .PP
 .ft L
+.nf
+.ta 4n +\w'Rectangle 'u +\w'words[1];  'u
+typedef struct Memalloc
+{
+	Memdata	*md;	/* back pointer to the Memdata this allocation belongs to */
+	uintptr	pc;	/* return PC of the allocmemimage() call that made this allocation */
+	u32int	words[1];	/* flexible array member for the actual data words that follow */
+} Memalloc;
+.PP
+.ft L
+.nf
 typedef struct Memdata
 {
-	ulong	*base;	/* allocated data pointer */
-	uchar	*bdata;	/* first byte of actual data; word-aligned */
-	int		ref;		/* number of Memimages using this data */
-	void*	imref;	/* last image that pointed at this */
-	int		allocd;	/* is this malloc'd? */
+	Memalloc	*alloc;	/* allocated data */
+	uchar	*bdata;	/* pointer to first byte of actual data; word-aligned */
+	int	allocd;	/* is this malloc'd? */
+	int	ref;	/* number of Memimages using this data */
+	void	*imref;	/* last image that pointed at this */
 } Memdata;
-
-enum {
+.PP
+.ft L
+.nf
+enum
+{
 	Frepl	= 1<<0,	/* is replicated */
 	Fsimple	= 1<<1,	/* is 1x1 */
 	Fgrey	= 1<<2,	/* is grey */
 	Falpha	= 1<<3,	/* has explicit alpha */
 	Fcmap	= 1<<4,	/* has cmap channel */
-	Fbytes	= 1<<5,	/* has only 8-bit channels */
+	Fbytes	= 1<<5	/* has only 8-bit channels */
 };
-
+.PP
+.ft L
+.nf
 typedef struct Memimage
 {
-	Rectangle	r;		/* rectangle in data area, local coords */
+	Rectangle	r;	/* rectangle in data area, local coords */
 	Rectangle	clipr;	/* clipping region */
-	int		depth;	/* number of bits of storage per pixel */
-	int		nchan;	/* number of channels */
-	ulong	chan;	/* channel descriptions */
+	int	depth;	/* number of bits of storage per pixel */
+	int	nchan;	/* number of channels */
+	u32int	chan;	/* channel descriptions */
 
 	Memdata	*data;	/* pointer to data */
-	int		zero;	/* data->bdata+zero==&byte containing (0,0) */
-	ulong	width;	/* width in words of a single scan line */
-	Memlayer	*layer;	/* nil if not a layer*/
-	ulong	flags;
+	int	zero;	/* data->bdata+zero==&byte containing (0,0) */
+	u32int	width;	/* width in words of a single scan line */
+	Memlayer	*layer;	/* nil if not a layer */
+	u32int	flags;
 	\fI...\fP
 } Memimage;
-
+.PP
+.ft L
+.nf
 typedef struct Memdrawparam
 {
 	Memimage	*dst;
@@ -89,7 +107,9 @@ typedef struct Memdrawparam
 	Rectangle	mr;
 	\fI...\fP
 } Memdrawparam;
-
+.PP
+.ft L
+.nf
 .ta \w'\fLMemsubfont* 'u
 int	drawdebug;
 .ft
@@ -97,58 +117,58 @@ int	drawdebug;
 .ft L
 .nf
 void	memimageinit(void)
-ulong*	wordaddr(Memimage *i, Point p)
+u32int*	wordaddr(Memimage *i, Point p)
 uchar*	byteaddr(Memimage *i, Point p)
 void	memimagemove(void *from, void *to)
 .PP
 .ft L
 .nf
-Memimage*	allocmemimage(Rectangle r, ulong chan)
-Memimage*	allocmemimaged(Rectangle r, ulong chan, Memdata *data)
+Memimage*	allocmemimage(Rectangle r, u32int chan)
+Memimage*	allocmemimaged(Rectangle r, u32int chan, Memdata *data)
 Memimage*	readmemimage(int fd)
 Memimage*	creadmemimage(int fd)
 int	writememimage(int fd, Memimage *i)
 void	freememimage(Memimage *i)
-int	memsetchan(Memimage*, ulong)
+int	memsetchan(Memimage *i, u32int chan)
 .PP
 .ft L
 .nf
 int	loadmemimage(Memimage *i, Rectangle r,
-	   uchar *buf, int nbuf)
+	    uchar *buf, int nbuf)
 int	cloadmemimage(Memimage *i, Rectangle r,
-	   uchar *buf, int nbuf)
+	    uchar *buf, int nbuf)
 int	unloadmemimage(Memimage *i, Rectangle r,
-	   uchar *buf, int nbuf)
-void	memfillcolor(Memimage *i, ulong color)
+	    uchar *buf, int nbuf)
+void	memfillcolor(Memimage *i, u32int color)
 .PP
 .ft L
 .nf
 void	memarc(Memimage *dst, Point c, int a, int b, int thick,
-	   Memimage *src, Point sp, int alpha, int phi, Drawop op)
+	    Memimage *src, Point sp, int alpha, int phi, Drawop op)
 void	mempoly(Memimage *dst, Point *p, int np, int end0,
-	   int end1, int radius, Memimage *src, Point sp, Drawop op)
+	    int end1, int radius, Memimage *src, Point sp, Drawop op)
 void	memellipse(Memimage *dst, Point c, int a, int b,
-	   int thick, Memimage *src, Point sp, Drawop op)
+	    int thick, Memimage *src, Point sp, Drawop op)
 void	memfillpoly(Memimage *dst, Point *p, int np, int wind,
-		   Memimage *src, Point sp, Drawop op)
+	    Memimage *src, Point sp, Drawop op)
 void	memimageline(Memimage *dst, Point p0, Point p1, int end0,
-	   int end1, int radius, Memimage *src, Point sp, Drawop op)
+	    int end1, int radius, Memimage *src, Point sp, Drawop op)
 void	memimagedraw(Memimage *dst, Rectangle r, Memimage *src,
-	   Point sp, Memimage *mask, Point mp, Drawop op)
+	    Point sp, Memimage *mask, Point mp, Drawop op)
 .PP
 .ft L
 .nf
 int	drawclip(Memimage *dst, Rectangle *dr, Memimage *src,
-	   Point *sp, Memimage *mask, Point *mp,
-	   Rectangle *sr, Rectangle *mr)
+	    Point *sp, Memimage *mask, Point *mp,
+	    Rectangle *sr, Rectangle *mr)
 Rectangle	memlinebbox(Point p0, Point p1, int end0, int end1,
-	   int radius)
+	    int radius)
 int	memlineendsize(int end)
 .PP
 .ft L
 .nf
 Memsubfont*	allocmemsubfont(char *name, int n, int height,
-	   int ascent, Fontchar *info, Memimage *i)
+	    int ascent, Fontchar *info, Memimage *i)
 Memsubfont*	openmemsubfont(char *name)
 void	freememsubfont(Memsubfont *f)
 Point	memsubfontwidth(Memsubfont *f, char *s)
@@ -220,14 +240,17 @@ Each
 .B Memimage
 points at a
 .B Memdata
-structure that in turn points at the actual pixel data for the image.
+structure that in turn points at a
+.B Memalloc
+allocation header abutting via the
+.B words
+flexible array member the actual pixel data for the image.
 This allows multiple images to be associated with the same
 .BR Memdata .
-The first word of the data pointed at by
-the
-.B base
-element of
-.B Memdata
+The
+.B md
+field of
+.B Memalloc
 points back at the
 .B Memdata
 structure, so that in the Plan 9 kernel, the
