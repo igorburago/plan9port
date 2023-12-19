@@ -302,7 +302,7 @@ structure and associated storage.
 .I Allocmemimaged
 is similar but uses the supplied
 .I Memdata
-structure rather than a new one.
+structure (incrementing its reference counter) rather than a new one.
 The
 .I readmemimage
 function reads an uncompressed bitmap

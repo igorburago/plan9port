@@ -29,7 +29,7 @@ memlalloc(Memscreen *s, Rectangle screenr, Refreshfn refreshfn, void *refreshptr
 	}
 
 	l->screen = s;
-	if(refreshfn)
+	if(refreshfn != nil)
 		l->save = nil;
 	else{
 		l->save = allocmemimage(screenr, s->image->chan);
@@ -47,7 +47,6 @@ memlalloc(Memscreen *s, Rectangle screenr, Refreshfn refreshfn, void *refreshptr
 	l->screenr = screenr;
 	l->delta = Pt(0,0);
 
-	n->data->ref++;
 	n->zero = s->image->zero;
 	n->width = s->image->width;
 	n->layer = l;
@@ -55,7 +54,7 @@ memlalloc(Memscreen *s, Rectangle screenr, Refreshfn refreshfn, void *refreshptr
 	/* start with new window behind all existing ones */
 	l->front = s->rearmost;
 	l->rear = nil;
-	if(s->rearmost)
+	if(s->rearmost != nil)
 		s->rearmost->layer->rear = n;
 	s->rearmost = n;
 	if(s->frontmost == nil)

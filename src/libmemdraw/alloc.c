@@ -57,6 +57,7 @@ allocmemimaged(Rectangle r, u32int chan, Memdata *md)
 		return nil;
 	}
 
+	md->ref++;
 	i->data = md;
 	i->userdata = nil;
 	return i;
@@ -84,7 +85,7 @@ _allocmemimage(Rectangle r, u32int chan)
 	if(md == nil)
 		return nil;
 	md->allocd = 1;
-	md->ref = 1;
+	md->ref = 0;
 
 	datasize = sizeof(u32int) * wordsperline(r, depth) * Dy(r);
 	md->alloc = poolalloc(imagmem, offsetof(Memalloc, words)+datasize);
