@@ -14,6 +14,7 @@ typedef struct Memsubfont	Memsubfont;
 typedef struct Memlayer		Memlayer;
 typedef struct Memcmap		Memcmap;
 typedef struct Memdrawparam	Memdrawparam;
+typedef struct Memfilter	Memfilter;
 
 /*
  * Memimage is allocated from the main pool, but its .data from the image pool.
@@ -102,35 +103,42 @@ struct	Memsubfont
  */
 enum
 {
-	Simplesrc=1<<0,
-	Simplemask=1<<1,
-	Replsrc=1<<2,
-	Replmask=1<<3,
-	Fullsrc=1<<4,
-	Fullmask=1<<5
+	Simplesrc	= 1<<0,
+	Simplemask	= 1<<1,
+	Replsrc		= 1<<2,
+	Replmask	= 1<<3,
+	Fullsrc		= 1<<4,
+	Fullmask	= 1<<5
 };
 struct	Memdrawparam
 {
-	Memimage *dst;
+	Memimage	*dst;
 	Rectangle	r;
-	Memimage *src;
-	Rectangle sr;
-	Memimage *mask;
-	Rectangle mr;
-	int op;
+	Memimage	*src;
+	Rectangle	sr;
+	Memimage	*mask;
+	Rectangle	mr;
+	int		op;
 
-	u32int state;
-	u32int mval;	/* if Simplemask, the mask pixel in mask format */
-	u32int mrgba;	/* mval in rgba */
-	u32int sval;	/* if Simplesrc, the source pixel in src format */
-	u32int srgba;	/* sval in rgba */
-	u32int sdval;	/* sval in dst format */
+	u32int		state;
+	u32int		mval;	/* if Simplemask, the mask pixel in mask format */
+	u32int		mrgba;	/* mval in rgba */
+	u32int		sval;	/* if Simplesrc, the source pixel in src format */
+	u32int		srgba;	/* sval in rgba */
+	u32int		sdval;	/* sval in dst format */
+};
+
+enum { Maxnmemfilterparams = 5 };
+struct Memfilter
+{
+	float	(*kernel)(float, float, float[]);
+	float	support;
+	float	params[Maxnmemfilterparams];
 };
 
 /*
  * Memimage management
  */
-
 extern Memimage*	allocmemimage(Rectangle, u32int);
 extern Memimage*	allocmemimaged(Rectangle, u32int, Memdata*);
 extern Memimage*	readmemimage(int);
@@ -180,6 +188,12 @@ extern void	_memmkcmap(void);
 extern void	memimageinit(void);
 
 /*
+ * Resampling
+ */
+int		memresample(Memimage*, Rectangle, Memimage*, Rectangle, Memfilter*);
+Memimage*	resamplememimage(Memimage*, Rectangle, u32int, Memfilter*);
+
+/*
  * Subfont management
  */
 extern Memsubfont*	allocmemsubfont(char*, int, int, int, Fontchar*, Memimage*);
@@ -190,11 +204,27 @@ extern Point		memsubfontwidth(Memsubfont*, char*);
 /*
  * Predefined
  */
-extern	Memimage*	memwhite;
-extern	Memimage*	memblack;
-extern	Memimage*	memopaque;
-extern	Memimage*	memtransparent;
-extern	Memcmap*	memdefcmap;
+extern Memimage		*memwhite;
+extern Memimage		*memblack;
+extern Memimage		*memopaque;
+extern Memimage		*memtransparent;
+extern Memcmap		*memdefcmap;
+
+extern Memfilter	*memboxfilter;
+extern Memfilter	*memtrianglefilter;
+extern Memfilter	*memquadsplinefilter;
+extern Memfilter	*memquadblendfilter;
+extern Memfilter	*memquadinterpfilter;
+extern Memfilter	*memhermitefilter;
+extern Memfilter	*membsplinefilter;
+extern Memfilter	*memcatromfilter;
+extern Memfilter	*memmitchellfilter;
+extern Memfilter	*memlanczosfilter;
+extern Memfilter	*memhammingfilter;
+extern Memfilter	*memblackmanfilter;
+extern Memfilter	*memharrisfilter;
+extern Memfilter	*memflattopfilter;
+extern Memfilter	*memkaiserfilter;
 
 /*
  * Kernel interface

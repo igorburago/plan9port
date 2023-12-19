@@ -27,6 +27,8 @@ memimagedraw,
 drawclip,
 memlinebbox,
 memlineendsize,
+memresample,
+resamplememimage,
 allocmemsubfont,
 openmemsubfont,
 freememsubfont,
@@ -163,6 +165,13 @@ int	drawclip(Memimage *dst, Rectangle *dr, Memimage *src,
 Rectangle	memlinebbox(Point p0, Point p1, int end0, int end1,
 	    int radius)
 int	memlineendsize(int end)
+.PP
+.ft L
+.nf
+int	memresample(Memimage *dst, Rectangle dr, Memimage *src,
+	    Rectangle sr, Memfilter *f)
+Memimage*	resamplememimage(Memimage *i, Rectangle r,
+	    u32int chan, Memfilter *f)
 .PP
 .ft L
 .nf
@@ -419,6 +428,10 @@ and
 .BR mp .
 .I Drawclip
 returns zero when the clipped rectangle is empty.
+.PP
+.I Memresample
+takes two images
+.PP
 .I Memlinebbox
 returns a conservative bounding box containing a line between
 two points

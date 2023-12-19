@@ -22,6 +22,7 @@ OFILES=\
 	openmemsubfont.$O\
 	poly.$O\
 	read.$O\
+	resample.$O\
 	string.$O\
 	subfont.$O\
 	unload.$O\
