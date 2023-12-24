@@ -407,6 +407,12 @@ wintype(Window *w, Text *t, Rune r)
 		for(i=0; i<t->file->ntext; i++)
 			textscrdraw(t->file->text[i]);
 	winsettag(w);
+
+	/* As soon as typing starts, cancel any inertial scrolling in progress. */
+	if(mousescroll.inmotion && mousescroll.inertial){
+		mousescroll.motionhaltup = TRUE;
+		mousescroll.motionhaltdown = TRUE;
+	}
 }
 
 void

@@ -15,40 +15,39 @@
 	#include <bio.h>
 	#include "edit.h"
 
-void	mousethread(void*);
 void	keyboardthread(void*);
-void	waitthread(void*);
-void	xfidallocthread(void*);
+void	mousethread(void*);
 void	newwindowthread(void*);
 void	plumbproc(void*);
+void	shutdownthread(void*);
+void	waitthread(void*);
+void	xfidallocthread(void*);
+
+void	acmeerrorinit(void);
+void	readfile(Column*, char*);
+int	shutdown(void*, char*);
 int	timefmt(Fmt*);
 
-Reffont	**fontcache;
+Reffont		*reffonts[2];
+Reffont		**fontcache;
 int		nfontcache;
 char		wdir[512] = ".";
-Reffont	*reffonts[2];
-int		snarffd = -1;
 int		mainpid;
-int		swapscrollbuttons = FALSE;
 char		*mtpt;
+int		snarffd = -1;
+int		swapscrollbuttons = FALSE;
+Linesnapscroll	mousescroll;
 
-enum{
-	NSnarf = 1000	/* less than 1024, I/O buffer size */
-};
+enum { NSnarf = 1000 };	/* less than 1024, I/O buffer size */
 Rune	snarfrune[NSnarf+1];
 
-char		*fontnames[2] =
+char	*fontnames[2] =
 {
 	"/lib/font/bit/lucsans/euro.8.font",
 	"/lib/font/bit/lucm/unicode.9.font"
 };
 
-Command *command;
-
-void	shutdownthread(void*);
-void	acmeerrorinit(void);
-void	readfile(Column*, char*);
-static int	shutdown(void*, char*);
+Command	*command;
 
 void
 derror(Display *d, char *errorstr)
@@ -307,7 +306,8 @@ readfile(Column *c, char *s)
 	xfidlog(w, "new");
 }
 
-char *ignotes[] = {
+char	*ignotes[] =
+{
 	"sys: write on closed pipe",
 	"sys: ttin",
 	"sys: ttou",
@@ -315,7 +315,8 @@ char *ignotes[] = {
 	nil
 };
 
-char *oknotes[] ={
+char	*oknotes[] =
+{
 	"delete",
 	"hangup",
 	"kill",
@@ -325,12 +326,12 @@ char *oknotes[] ={
 
 int	dumping;
 
-static int
-shutdown(void *v, char *msg)
+int
+shutdown(void *arg, char *msg)
 {
 	int i;
 
-	USED(v);
+	USED(arg);
 
 	for(i=0; ignotes[i]; i++)
 		if(strncmp(ignotes[i], msg, strlen(ignotes[i])) == 0)
@@ -350,14 +351,14 @@ shutdown(void *v, char *msg)
 
 /*
 void
-shutdownthread(void *v)
+shutdownthread(void *arg)
 {
 	char *msg;
 	Channel *c;
 
-	USED(v);
-
+	USED(arg);
 	threadsetname("shutdown");
+
 	c = threadnotechan();
 	while((msg = recvp(c)) != nil)
 		shutdown(nil, msg);
@@ -377,17 +378,18 @@ killprocs(void)
 		postnote(PNGROUP, c->pid, "hangup");
 }
 
-static int errorfd;
-int erroutfd;
+static int	errorfd;
+int		erroutfd;
 
 void
-acmeerrorproc(void *v)
+acmeerrorproc(void *arg)
 {
 	char *buf;
 	int n;
 
-	USED(v);
+	USED(arg);
 	threadsetname("acmeerrorproc");
+
 	buf = emalloc(8192+1);
 	while((n=read(errorfd, buf, 8192)) >= 0){
 		buf[n] = '\0';
@@ -430,12 +432,13 @@ acmeerrorinit(void)
 
 /*
 void
-plumbproc(void *v)
+plumbproc(void *arg)
 {
 	Plumbmsg *m;
 
-	USED(v);
+	USED(arg);
 	threadsetname("plumbproc");
+
 	for(;;){
 		m = threadplumbrecv(plumbeditfd);
 		if(m == nil)
@@ -446,7 +449,7 @@ plumbproc(void *v)
 */
 
 void
-keyboardthread(void *v)
+keyboardthread(void *arg)
 {
 	Rune r;
 	Timer *timer;
@@ -454,7 +457,12 @@ keyboardthread(void *v)
 	enum { KTimer, KKey, NKALT };
 	static Alt alts[NKALT+1];
 
-	USED(v);
+	USED(arg);
+	threadsetname("keyboardthread");
+
+	typetext = nil;
+	timer = nil;
+
 	alts[KTimer].c = nil;
 	alts[KTimer].v = nil;
 	alts[KTimer].op = CHANNOP;
@@ -463,9 +471,6 @@ keyboardthread(void *v)
 	alts[KKey].op = CHANRCV;
 	alts[NKALT].op = CHANEND;
 
-	timer = nil;
-	typetext = nil;
-	threadsetname("keyboardthread");
 	for(;;){
 		switch(alt(alts)){
 		case KTimer:
@@ -516,7 +521,7 @@ winof(Text *t)
 }
 
 void
-mousethread(void *v)
+mousethread(void *arg)
 {
 	Text *t, *argt;
 	uint q0, q1;
@@ -524,14 +529,20 @@ mousethread(void *v)
 	Plumbmsg *pm;
 	int samewin;
 	Mouse m;
-	Linesnapscroll scroll;
 	int but, lines;
 	char *act;
 	enum { MResize, MMouse, MPlumb, MWarnings, NMALT };
 	static Alt alts[NMALT+1];
 
-	USED(v);
+	USED(arg);
 	threadsetname("mousethread");
+
+	seltext = nil;
+	argtext = nil;
+	mousetext = nil;
+	barttext = nil;
+	memset(&mousescroll, 0, sizeof(mousescroll));
+
 	alts[MResize].c = mousectl->resizec;
 	alts[MResize].v = nil;
 	alts[MResize].op = CHANRCV;
@@ -547,8 +558,6 @@ mousethread(void *v)
 	if(cplumb == nil)
 		alts[MPlumb].op = CHANNOP;
 	alts[NMALT].op = CHANEND;
-
-	memset(&scroll, 0, sizeof(scroll));
 
 	for(;;){
 		qlock(&row.lk);
@@ -599,10 +608,10 @@ mousethread(void *v)
 					 * do not carry over pending scroll, but do allow the motion
 					 * to go on in the new quarters if it is not inertial.
 					 */
-					if(scroll.inmotion && (!samewin || t->what!=mousetext->what)){
-						scroll.pendingdist = 0;
-						scroll.motionhaltup = scroll.inertial;
-						scroll.motionhaltdown = scroll.inertial;
+					if(mousescroll.inmotion && (!samewin || t->what!=mousetext->what)){
+						mousescroll.pendingdist = 0;
+						mousescroll.motionhaltup = mousescroll.inertial;
+						mousescroll.motionhaltdown = mousescroll.inertial;
 					}
 				}
 				if(mw != nil){
@@ -619,7 +628,7 @@ mousethread(void *v)
 
 			/* Scroll buttons, wheels, trackpad gestures, etc. */
 			if(m.buttons & Mscrollsmask){
-				lines = mouselinesnapscroll(&scroll, &m, t->fr.font->height, t->fr.maxlines);
+				lines = mouselinesnapscroll(&mousescroll, &m, t->fr.font->height, t->fr.maxlines);
 				if(w!=nil && lines!=0){
 					winlock(w, 'M');
 					t->eq0 = ~0;
@@ -717,7 +726,7 @@ struct Pid
 };
 
 void
-waitthread(void *v)
+waitthread(void *arg)
 {
 	Waitmsg *w;
 	Command *c, *lc;
@@ -730,9 +739,12 @@ waitthread(void *v)
 	enum { WErr, WKill, WWait, WCmd, NWALT };
 	Alt alts[NWALT+1];
 
-	USED(v);
+	USED(arg);
 	threadsetname("waitthread");
+
+	command = nil;
 	pids = nil;
+
 	alts[WErr].c = cerr;
 	alts[WErr].v = &err;
 	alts[WErr].op = CHANRCV;
@@ -747,7 +759,6 @@ waitthread(void *v)
 	alts[WCmd].op = CHANRCV;
 	alts[NWALT].op = CHANEND;
 
-	command = nil;
 	for(;;){
 		switch(alt(alts)){
 		case WErr:
@@ -849,14 +860,15 @@ waitthread(void *v)
 }
 
 void
-xfidallocthread(void *v)
+xfidallocthread(void *arg)
 {
 	Xfid *xfree, *x;
 	enum { Alloc, Free, N };
 	static Alt alts[N+1];
 
-	USED(v);
+	USED(arg);
 	threadsetname("xfidallocthread");
+
 	alts[Alloc].c = cxfidalloc;
 	alts[Alloc].v = nil;
 	alts[Alloc].op = CHANRCV;
@@ -891,11 +903,11 @@ xfidallocthread(void *v)
 
 /* this thread, in the main proc, allows fsysproc to get a window made without doing graphics */
 void
-newwindowthread(void *v)
+newwindowthread(void *arg)
 {
 	Window *w;
 
-	USED(v);
+	USED(arg);
 	threadsetname("newwindowthread");
 
 	for(;;){

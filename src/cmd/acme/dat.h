@@ -534,11 +534,17 @@ int			timerpid;
 Disk			*disk;
 Text			*seltext;
 Text			*argtext;
-Text			*mousetext;	/* global because Text.close needs to clear it */
-Text			*typetext;		/* global because Text.close needs to clear it */
-Text			*barttext;		/* shared between mousetask and keyboardthread */
+Text			*mousetext;	/* global because textclose() needs to clear it */
+Text			*typetext;		/* global because textclose() needs to clear it */
+Text			*barttext;		/* shared between mousethread and keyboardthread */
 int			bartflag;
 int			swapscrollbuttons;
+/*
+ * mousescroll holds the state of ongoing mouse scroll motions. mousethread
+ * shares it with keyboardthread so that wintype() can halt inertial scrolling
+ * when typing starts; it is accessed only when row.lk is acquired.
+ */
+Linesnapscroll	mousescroll;
 Window		*activewin;
 Column		*activecol;
 Buffer		snarfbuf;
