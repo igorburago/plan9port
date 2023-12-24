@@ -531,35 +531,35 @@ textendswithnl(Text *t)
 	return b->nc>0 && textreadc(t, b->nc-1)=='\n';
 }
 
-int
-textbswidth(Text *t, Rune c)
+static uint
+textbspos(Text *t, uint q0, Rune bs)
 {
-	uint q, eq;
+	int inword;
+	uint q;
 	Rune r;
-	int skipping;
 
-	/* there is known to be at least one character to erase */
-	if(c == KctrlH)	/* ^H: erase character */
-		return 1;
-	q = t->q0;
-	skipping = TRUE;
-	while(q > 0){
+	if(bs == KctrlH)	/* ^H: erase character */
+		return q0 - (q0>0);
+	inword = FALSE;
+	for(q=q0; q>0; q--){
 		r = textreadc(t, q-1);
-		if(r == '\n'){		/* eat at most one more character */
-			if(q == t->q0)	/* eat the newline */
-				--q;
+		if(r == '\n'){
+			/*
+			 * When started from a newline, both ^W and ^U skip it
+			 * before stopping, unlike ^A which stays put instead.
+			 */
+			if(q==q0 && bs!=KctrlA)
+				q--;
 			break;
 		}
-		if(c == KctrlW){	/* ^W: erase word */
-			eq = isalnum(r);
-			if(eq && skipping)	/* found one; stop skipping */
-				skipping = FALSE;
-			else if(!eq && !skipping)
+		if(bs == KctrlW){	/* ^W: erase word */
+			if(isalnum(r))
+				inword = TRUE;
+			else if(inword)
 				break;
 		}
-		--q;
 	}
-	return t->q0-q;
+	return q;
 }
 
 int
@@ -666,9 +666,8 @@ textcomplete(Text *t)
 void
 texttype(Text *t, Rune r)
 {
-	uint q0, q1;
-	int nnb, nb, n, i;
-	int nr;
+	uint q0, q1, nr, nb;
+	int n, i;
 	Rune *rp;
 	Text *u;
 
@@ -739,11 +738,8 @@ texttype(Text *t, Rune r)
 		return;
 	case KctrlA:	/* ^A: beginning of line */
 		typecommit(t);
-		/* go to where ^U would erase, if not already at BOL */
-		nnb = 0;
-		if(t->q0>0 && textreadc(t, t->q0-1)!='\n')
-			nnb = textbswidth(t, KctrlU);
-		textshow(t, t->q0-nnb, t->q0-nnb, TRUE);
+		q0 = textbspos(t, t->q0, KctrlA);
+		textshow(t, q0, q0, TRUE);
 		return;
 	case KctrlE:	/* ^E: end of line */
 		typecommit(t);
@@ -807,7 +803,7 @@ texttype(Text *t, Rune r)
 		if(rp == nil)
 			return;
 		nr = runestrlen(rp);
-		break;	/* fall through to normal insertion case */
+		goto Insertrunes;
 	case Kesc:
 		if(t->eq0 != ~0) {
 			if(t->eq0 <= t->q0)
@@ -822,22 +818,17 @@ texttype(Text *t, Rune r)
 	case KctrlH:	/* ^H: erase character */
 	case KctrlU:	/* ^U: erase line */
 	case KctrlW:	/* ^W: erase word */
-		if(t->q0 == 0)	/* nothing to erase */
-			return;
-		nnb = textbswidth(t, r);
 		q1 = t->q0;
-		q0 = q1-nnb;
+		q0 = textbspos(t, q1, r);
 		/* if selection is at beginning of window, avoid deleting invisible text */
-		if(q0 < t->org){
+		if(q0 < t->org)
 			q0 = t->org;
-			nnb = q1-q0;
-		}
-		if(nnb <= 0)
+		if(q0 >= q1)
 			return;
 		for(i=0; i<t->file->ntext; i++){
 			u = t->file->text[i];
 			u->nofill = TRUE;
-			nb = nnb;
+			nb = q1-q0;
 			n = u->ncache;
 			if(n > 0){
 				if(q1 != u->cq0+n)
@@ -850,7 +841,7 @@ texttype(Text *t, Rune r)
 			}
 			if(u->eq0==q1 || u->eq0==~0)
 				u->eq0 = q0;
-			if(nb && u==t)
+			if(nb>0 && u==t)
 				textdelete(u, q0, q0+nb, TRUE);
 			if(u != t)
 				textsetselect(u, u->q0, u->q1);
@@ -864,20 +855,23 @@ texttype(Text *t, Rune r)
 		return;
 	case '\n':
 		if(t->w->autoindent){
-			/* find beginning of previous line using backspace code */
-			nnb = textbswidth(t, KctrlU);
-			rp = runemalloc(nnb + 1);
+			q1 = t->q0;
+			q0 = textbspos(t, q1, KctrlA);
+			if(q0 >= q1)
+				goto Insertrunes;
+			rp = runemalloc(1+q1-q0);
 			nr = 0;
 			rp[nr++] = r;
-			for(i=0; i<nnb; i++){
-				r = textreadc(t, t->q0-nnb+i);
-				if(r != ' ' && r != '\t')
+			for(; q0<q1; q0++){
+				r = textreadc(t, q0);
+				if(r!=' ' && r!='\t')
 					break;
 				rp[nr++] = r;
 			}
 		}
-		break; /* fall through to normal code */
+		goto Insertrunes;
 	}
+Insertrunes:
 	/* otherwise ordinary character; just insert, typically in caches of all texts */
 	for(i=0; i<t->file->ntext; i++){
 		u = t->file->text[i];
