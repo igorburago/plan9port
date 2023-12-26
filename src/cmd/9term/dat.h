@@ -166,6 +166,7 @@ void		wcut(Window*);
 void		wdelete(Window*, uint, uint);
 void		wdoubleclick(Window*, uint*, uint*);
 void		wfill(Window*);
+uint		wforwardnl(Window*, uint, uint);
 void		wframescroll(Window*, int);
 void		wkeyctl(Window*, Rune);
 void		wmousectl(Window*);

@@ -1542,6 +1542,51 @@ wbacknl(Window *win, uint p, uint n)
 	return p;
 }
 
+uint
+wforwardnl(Window *win, uint p, uint n)
+{
+	Font *font;
+	int mintab, maxtab, maxw, w;
+	uint end, p0;
+	Rune r;
+
+	font = win->f.font;
+	mintab = stringnwidth(font, " ", 1);
+	maxtab = win->f.maxtab;
+	maxw = Dx(win->f.r);
+	end = win->nr;
+
+	/*
+	 * Skip over the next n display lines' worth of runes starting at p.
+	 * n==0 has the same meaning as n==1, except there is no need to go
+	 * anywhere if p is at a (physical) line boundary.
+	 */
+	if(n==0 && p>0 && win->r[p-1]!='\n')
+		n = 1;
+	for(; n>0 && p<end; n--){
+		/* Loop invariant: p is at the first rune after a display line break. */
+		w = 0;
+		for(p0=p; p<end; p++){
+			r = win->r[p];
+			if(r == '\n'){
+				p++;
+				break;
+			}
+			if(r == '\t')
+				w += max(mintab, maxtab-w%maxtab);
+			else
+				w += runestringnwidth(font, &r, 1);
+			if(w > maxw){
+				/* If even a single rune does not fit, force one anyway. */
+				if(p == p0)
+					p++;
+				break;
+			}
+		}
+	}
+	return p;
+}
+
 void
 wshow(Window *w, uint q0)
 {
