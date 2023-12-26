@@ -183,25 +183,34 @@ wscrclick(Window *w, int but)
 }
 
 void
-wscrollnl(Window *w, int lines)
+wscrollnl(Window *w, int lines, int scrollpastend)
 {
 	uint org;
 	Point p;
+	int n;
 
-	if(lines == 0)
-		return;
 	if(lines < 0){
 		if(w->org == 0)
 			return;
 		org = wbacknl(w, w->org, -lines);
-	}else{
-		if(w->org == w->nr)
+		wsetorigin(w, org);
+	}else if(lines > 0){
+		if(scrollpastend ? w->org==w->nr : !w->f.lastlinefull)
 			return;
 		p = w->f.r.min;
 		p.y += min(lines, w->f.maxlines) * w->f.font->height;
 		org = w->org + frcharofpt(&w->f, p);
 		if(lines > w->f.maxlines)
 			org = wforwardnl(w, org, lines-w->f.maxlines);
+		wsetorigin(w, org);
+		if(!scrollpastend && !w->f.lastlinefull){
+			n = w->f.maxlines - w->f.nlines;
+			if(w->nr>0 && w->r[w->nr-1]=='\n')
+				n--;
+			if(n > 0){
+				org = wbacknl(w, w->org, n);
+				wsetorigin(w, org);
+			}
+		}
 	}
-	wsetorigin(w, org);
 }

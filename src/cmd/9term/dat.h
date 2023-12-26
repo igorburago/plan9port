@@ -171,7 +171,7 @@ void	wrepaint(Window*);
 void	wresize(Window*, Image*, int);
 void	wscrclick(Window*, int);
 void	wscrdraw(Window*);
-void	wscrollnl(Window*, int);
+void	wscrollnl(Window*, int, int);
 void	wscrsleep(Window*, uint);
 void	wselect(Window*);
 void	wsendctlmesg(Window*, int, Rectangle, Image*);

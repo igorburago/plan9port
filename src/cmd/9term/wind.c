@@ -936,7 +936,7 @@ wmousectl(Window *w)
 	if(m->buttons & Mscrollsmask){
 		lines = mouselinesnapscroll(&w->mousescroll, m, w->f.font->height, w->f.maxlines);
 		if(lines != 0)
-			wscrollnl(w, lines);
+			wscrollnl(w, lines, TRUE);
 		goto Return;
 	}
 
@@ -1018,28 +1018,18 @@ framescroll(Frame *f, int dl)
 void
 wframescroll(Window *w, int dl)
 {
-	uint q0;
+	uint dragq;
 
 	if(dl == 0){
 		wscrsleep(w, 100);
 		return;
 	}
-	if(dl < 0){
-		q0 = wbacknl(w, w->org, -dl);
-		if(selectq > w->org+w->f.p0)
-			wsetselect(w, w->org+w->f.p0, selectq);
-		else
-			wsetselect(w, selectq, w->org+w->f.p0);
-	}else{
-		if(w->org+w->f.nchars == w->nr)
-			return;
-		q0 = w->org+frcharofpt(&w->f, Pt(w->f.r.min.x, w->f.r.min.y+dl*w->f.font->height));
-		if(selectq >= w->org+w->f.p1)
-			wsetselect(w, w->org+w->f.p1, selectq);
-		else
-			wsetselect(w, selectq, w->org+w->f.p1);
-	}
-	wsetorigin(w, q0);
+	dragq = w->org + (dl<0 ? w->f.p0 : w->f.p1);
+	wscrollnl(w, dl, FALSE);
+	if(dragq < selectq)
+		wsetselect(w, dragq, selectq);
+	else
+		wsetselect(w, selectq, dragq);
 }
 
 void
