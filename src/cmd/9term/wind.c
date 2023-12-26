@@ -274,7 +274,7 @@ winctl(void *arg)
 			alts[WCread].op = CHANNOP;
 			for(i=w->qh; i<w->nr; i++){
 				c = w->r[i];
-				if(c=='\n' || c=='\004'){
+				if(c=='\n' || c==KctrlD){
 					alts[WCread].op = CHANSND;
 					break;
 				}
@@ -405,13 +405,13 @@ winctl(void *arg)
 					wid = runetochar(t+i, &w->r[w->qh++]);
 				c = t[i];	/* knows break characters fit in a byte */
 				i += wid;
-				if(!w->rawing && (c == '\n' || c=='\004')){
-				/*	if(c == '\004') */
+				if(!w->rawing && (c=='\n' || c==KctrlD)){
+				/*	if(c == KctrlD) */
 				/*		i--; */
 					break;
 				}
 			}
-		/*	if(i==nb && w->qh<w->nr && w->r[w->qh]=='\004') */
+		/*	if(i==nb && w->qh<w->nr && w->r[w->qh]==KctrlD) */
 		/*		w->qh++; */
 			if(i > nb){
 				npart = i-nb;
@@ -645,14 +645,14 @@ wkeyctl(Window *w, Rune r)
 				wsetorigin(w, q0);
 			}
 			return;
-		case 0x01:	/* ^A: beginning of line */
+		case KctrlA:	/* ^A: beginning of line */
 			if(w->q0==0 || w->q0==w->qh || w->r[w->q0-1]=='\n')
 				return;
-			nb = wbswidth(w, 0x15 /* ^U */);
+			nb = wbswidth(w, KctrlU);
 			wsetselect(w, w->q0-nb, w->q0-nb);
 			wshow(w, w->q0);
 			return;
-		case 0x05:	/* ^E: end of line */
+		case KctrlE:	/* ^E: end of line */
 			q0 = w->q0;
 			while(q0<w->nr && w->r[q0]!='\n')
 				q0++;
@@ -668,13 +668,13 @@ wkeyctl(Window *w, Rune r)
 	 * If you find yourself in some weird readline mode, good
 	 * luck getting out without ESC.  Let's see who complains.
 	 */
-	if(r==0x1B || (w->holding && r==0x7F)){	/* toggle hold */
+	if(r==Kesc || (w->holding && r==Kdel)){	/* toggle hold */
 		if(w->holding)
 			--w->holding;
 		else
 			w->holding++;
 		wrepaint(w);
-		if(r == 0x1B)
+		if(r == Kesc)
 			return;
 	}
 	if(!w->holding && w->rawing && (w->q0==w->nr || w->mouseopen)){
@@ -697,23 +697,23 @@ wkeyctl(Window *w, Rune r)
 		wscrdraw(w);
 		return;
 	}
-	if(r != 0x7F){
+	if(r != Kdel){
 		wsnarf(w);
 		wcut(w);
 	}
 	switch(r){
-	case 0x03:		/* maybe send interrupt */
-		/* since ^C is so commonly used as interrupt, special case it */
-		if (intrc() != 0x03)
+	case KctrlC:		/* maybe send interrupt */
+		/* since ^C is so commonly used as interrupt, special-case it */
+		if(intrc() != KctrlC)
 			break;
 		/* fall through */
-	case 0x7F:		/* send interrupt */
+	case Kdel:		/* send interrupt */
 		w->qh = w->nr;
 		wshow(w, w->qh);
 		winterrupt(w);
 		w->iq1 = w->q0;
 		return;
-	case 0x06:	/* ^F: file name completion */
+	case KctrlF:	/* ^F: file name completion */
 	case Kins:		/* Insert: file name completion */
 		rp = namecomplete(w);
 		if(rp == nil)
@@ -725,9 +725,9 @@ wkeyctl(Window *w, Rune r)
 		w->iq1 = w->q0;
 		free(rp);
 		return;
-	case 0x08:	/* ^H: erase character */
-	case 0x15:	/* ^U: erase line */
-	case 0x17:	/* ^W: erase word */
+	case KctrlH:	/* ^H: erase character */
+	case KctrlU:	/* ^U: erase line */
+	case KctrlW:	/* ^W: erase word */
 		if(w->q0==0 || w->q0==w->qh)
 			return;
 		nb = wbswidth(w, r);
@@ -788,7 +788,7 @@ wbswidth(Window *w, Rune c)
 	int skipping;
 
 	/* there is known to be at least one character to erase */
-	if(c == 0x08)	/* ^H: erase character */
+	if(c == KctrlH)	/* ^H: erase character */
 		return 1;
 	q = w->q0;
 	stop = 0;
@@ -802,7 +802,7 @@ wbswidth(Window *w, Rune c)
 				--q;
 			break;
 		}
-		if(c == 0x17){
+		if(c == KctrlW){	/* ^W: erase word */
 			eq = isalnum(r);
 			if(eq && skipping)	/* found one; stop skipping */
 				skipping = FALSE;

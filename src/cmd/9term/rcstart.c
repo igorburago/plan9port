@@ -3,6 +3,8 @@
 #include <libc.h>
 #include "term.h"
 
+enum { Kbs = 0x08 };
+
 int loginshell;
 
 static void
@@ -163,8 +165,8 @@ echocancel(char *p, int n)
 			}
 			if(echo.buf[echo.r] == '\n' && p[i] == '\r')
 				continue;
-			if(p[i] == 0x08) {
-				if(i+2 <= n && p[i+1] == ' ' && p[i+2] == 0x08)
+			if(p[i] == Kbs) {
+				if(i+2<=n && p[i+1]==' ' && p[i+2]==Kbs)
 					i += 2;
 				continue;
 			}
@@ -184,10 +186,10 @@ dropcrnl(char *p, int n)
 	char *r, *w;
 
 	for(r=w=p; r<p+n; r++) {
-		if(r+1<p+n && *r == '\r' && *(r+1) == '\n')
+		if(r+1<p+n && r[0]=='\r' && r[1]=='\n')
 			continue;
-		if(*r == 0x08) {
-			if(r+2<=p+n && *(r+1) == ' ' && *(r+2) == 0x08)
+		if(r[0] == Kbs) {
+			if(r+2<=p+n && r[1]==' ' && r[2]==Kbs)
 				r += 2;
 			continue;
 		}

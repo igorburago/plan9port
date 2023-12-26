@@ -5,6 +5,14 @@
 #include <9pclient.h>
 #include "term.h"
 
+enum
+{
+	Kbs	= 0x08,
+	Kdel	= 0x7F,
+	KctrlC	= 0x03,
+	KctrlD	= 0x04
+};
+
 const char *termprog = "win";
 
 #define	EVENTSIZE	256
@@ -395,11 +403,11 @@ stdinproc(void *v)
 		case 'M':
 			switch(e.c2){
 			case 'I':
-				if(e.nr == 1 && e.r[0] == 0x7F) {
+				if(e.nr == 1 && e.r[0] == Kdel) {
 					char buf[1];
 					fsprint(addrfd, "#%ud,#%ud", e.q0, e.q1);
 					fswrite(datafd, "", 0);
-					buf[0] = 0x7F;
+					buf[0] = Kdel;
 					write(fd0, buf, 1);
 					break;
 				}
@@ -700,7 +708,7 @@ addtype(int c, uint p0, char *b, int nb, int nr)
 
 	for(i=0; i<nb; i+=w){
 		w = chartorune(&r, b+i);
-		if((r==0x7F||r==3) && c=='K'){
+		if((r==Kdel || r==KctrlC) && c=='K'){
 			write(rcfd, "\x7F", 1);
 			/* toss all typing */
 			q.p += ntyper+nr;
@@ -710,7 +718,7 @@ addtype(int c, uint p0, char *b, int nb, int nr)
 			/* buglet:  more than one delete ignored */
 			return;
 		}
-		if(r=='\n' || r==0x04)
+		if(r=='\n' || r==KctrlD)
 			ntypebreak++;
 	}
 	typing = realloc(typing, ntypeb+nb);
@@ -747,8 +755,8 @@ sendtype(int fd0)
 	raw = israw(fd0);
 	while(ntypebreak || (raw && ntypeb > 0)){
 		for(i=0; i<ntypeb; i++)
-			if(typing[i]=='\n' || typing[i]==0x04 || (i==ntypeb-1 && raw)){
-				if((typing[i] == '\n' || typing[i] == 0x04) && ntypebreak > 0)
+			if(typing[i]=='\n' || typing[i]==KctrlD || (i==ntypeb-1 && raw)){
+				if((typing[i]=='\n' || typing[i]==KctrlD) && ntypebreak>0)
 					ntypebreak--;
 				n = i+1;
 				i++;
@@ -775,7 +783,7 @@ sendbs(int fd0, int n)
 	char buf[128];
 	int m;
 
-	memset(buf, 0x08, sizeof buf);
+	memset(buf, Kbs, sizeof buf);
 	while(n > 0) {
 		m = sizeof buf;
 		if(m > n)
@@ -805,7 +813,7 @@ deltype(uint p0, uint p1)
 	for(; p<p1 && b1<ntypeb; p++){
 		w = chartorune(&r, typing+b1);
 		b1 += w;
-		if(r=='\n' || r==0x04)
+		if(r=='\n' || r==KctrlD)
 			ntypebreak--;
 	}
 	if(p != p1)

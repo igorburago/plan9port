@@ -356,11 +356,11 @@ button2menu(Window *w)
 			break;
 		if(w->rawing){
 			waddraw(w, snarf, nsnarf);
-			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
+			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!=Keof)
 				waddraw(w, Lnl, 1);
 		}else{
 			winsert(w, snarf, nsnarf, w->nr);
-			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
+			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!=Keof)
 				winsert(w, Lnl, 1, w->nr);
 		}
 		wsetselect(w, w->nr, w->nr);
