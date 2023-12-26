@@ -16,6 +16,7 @@ OFILES=\
 	creadimage.$O\
 	cursor.$O\
 	debug.$O\
+	dragscroll.$O\
 	draw.$O\
 	drawclient.$O\
 	drawfcall.$O\
@@ -54,12 +55,12 @@ OFILES=\
 	subfont.$O\
 	subfontcache.$O\
 	subfontname.$O\
+	unix.$O\
 	unloadimage.$O\
 	window.$O\
 	writeimage.$O\
 	writesubfont.$O\
 	wsys.$O\
-	unix.$O\
 
 HFILES=\
 	$PLAN9/include/draw.h\

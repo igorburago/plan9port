@@ -13,6 +13,7 @@ typedef struct Cachefont	Cachefont;
 typedef struct Cacheinfo	Cacheinfo;
 typedef struct Cachesubf	Cachesubf;
 typedef struct Display		Display;
+typedef struct Dragscroll	Dragscroll;
 typedef struct Font		Font;
 typedef struct Fontchar		Fontchar;
 typedef struct Image		Image;
@@ -351,6 +352,17 @@ struct Linesnapscroll
 };
 
 /*
+ * State for pacing UI updates during mouse drag scrolling
+ */
+struct Dragscroll
+{
+	int	pacediffms;
+	uint	lastmovems;
+	uint	mousems;
+	uint	mousewallms;
+};
+
+/*
  * Image management
  */
 extern Image*	_allocimage(Image*, Display*, Rectangle, u32int, int, u32int, int, int);
@@ -532,6 +544,13 @@ extern void	swapfont(Font*, Font**, Font**);
 extern int	mousepixelscrollscaled(int);
 extern int	mouselinescrollscaled(int, int);
 extern int	mouselinesnapscroll(Linesnapscroll*, Mouse*, int, int);
+
+/*
+ * Mouse drag scroll pacing
+ */
+extern void	dragscrollreset(Dragscroll*, Mouse*, int);
+extern int	dragscrolldelta(Dragscroll*, int, int);
+extern void	dragscrollresume(Dragscroll*, Mouse*, int);
 
 /*
  * Snarf buffer
