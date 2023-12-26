@@ -15,30 +15,28 @@
 #include "fns.h"
 #include "term.h"
 
-const char *termprog = "9term";
-int use9wm;
-int mainpid;
-int mousepid;
-int plumbfd;
-int rcpid;
-int rcfd;
-int sfd;
-Window *w;
-char *fontname;
-
-void derror(Display*, char*);
+void	derror(Display*, char*);
 void	mousethread(void*);
 void	keyboardthread(void*);
-void winclosethread(void*);
-void deletethread(void*);
-void rcoutputproc(void*);
+void	rcoutputproc(void*);
 void	rcinputproc(void*);
-void hangupnote(void*, char*);
-void resizethread(void*);
+void	hangupnote(void*, char*);
+void	resizethread(void*);
 void	servedevtext(void);
 
-int errorshouldabort = 0;
-int cooked;
+const char	*termprog = "9term";
+int		use9wm;
+int		mainpid;
+int		mousepid;
+int		plumbfd;
+int		rcpid;
+int		rcfd;
+int		sfd;
+Window		*w;
+char		*fontname;
+
+int	errorshouldabort = 0;
+int	cooked;
 
 void
 usage(void)
@@ -114,9 +112,6 @@ threadmain(int argc, char *argv[])
 	if(keyboardctl == nil)
 		error("cannot find keyboard");
 	mouse = &mousectl->m;
-
-	winclosechan = chancreate(sizeof(Window*), 0);
-	deletechan = chancreate(sizeof(char*), 0);
 
 	timerinit();
 	servedevtext();
@@ -287,7 +282,6 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 /*
  * Button 2 menu.  Extra entry for always cook
  */
-
 enum
 {
 	Cut,
@@ -299,30 +293,28 @@ enum
 	Scroll,
 	Cook
 };
-
-char		*menu2str[] = {
+char	*menu2str[] =
+{
 	"cut",
 	"paste",
 	"snarf",
 	"plumb",
 	"look",
 	"send",
-	"cook",
 	"scroll",
+	"cook",
 	nil
 };
-
-
 Menu menu2 =
 {
 	menu2str
 };
 
-Rune newline[] = { '\n' };
-
 void
 button2menu(Window *w)
 {
+	static Rune Lnl[] = { '\n', 0 };
+
 	if(w->deleted)
 		return;
 	incref(&w->ref);
@@ -368,11 +360,11 @@ button2menu(Window *w)
 		if(w->rawing){
 			waddraw(w, snarf, nsnarf);
 			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
-				waddraw(w, newline, 1);
+				waddraw(w, Lnl, 1);
 		}else{
 			winsert(w, snarf, nsnarf, w->nr);
 			if(snarf[nsnarf-1]!='\n' && snarf[nsnarf-1]!='\004')
-				winsert(w, newline, 1, w->nr);
+				winsert(w, Lnl, 1, w->nr);
 		}
 		wsetselect(w, w->nr, w->nr);
 		wshow(w, w->nr);

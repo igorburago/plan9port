@@ -151,7 +151,6 @@ fprint(2, "res %p %p\n", w->i, i);
 	}
 	wborder(w, wscale(w, Selborder));
 	w->topped = ++topped;
-	w->resized = TRUE;
 	w->mouse.counter++;
 }
 

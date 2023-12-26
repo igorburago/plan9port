@@ -97,7 +97,6 @@ struct Mouseinfo
 struct Window
 {
 	Ref	ref;
-	QLock	lk;
 	Frame	f;
 	Image		*i;
 	Mousectl		mc;
@@ -125,20 +124,16 @@ struct Window
 	/*
 	 * Rio once used originwindow, so screenr could be different from i->r.
 	 * Now they're always the same but the code doesn't assume so.
-	*/
+	 */
 	Rectangle		screenr;	/* screen coordinates of window */
-	int			resized;
 	int			wctlready;
 	Rectangle		lastsr;
 	int			topped;
 	int			notefd;
 	uchar		scrolling;
-	Cursor		cursor;
 	Cursor		*cursorp;
 	uchar		holding;
 	uchar		rawing;
-	uchar		ctlopen;
-	uchar		wctlopen;
 	uchar		deleted;
 	uchar		mouseopen;
 	char			*label;
@@ -195,8 +190,6 @@ void		wsnarf(Window*);
 void 		wscrsleep(Window*, uint);
 void		wsetcols(Window*);
 
-void		deletetimeoutproc(void*);
-
 struct Timer
 {
 	int		dt;
@@ -230,18 +223,14 @@ Extern	Window	*wkeyboard;	/* window of simulated keyboard */
 Extern	int		nwindow;
 Extern	int		snarffd;
 Extern	Window	*input;
-Extern	QLock	all;			/* BUG */
 Extern	Window	*hidden[100];
 Extern	int		nhidden;
 Extern	int		nsnarf;
 Extern	Rune*	snarf;
 Extern	int		scrolling;
 Extern	int		maxtab;
-Extern	Channel*	winclosechan;
-Extern	Channel*	deletechan;
 Extern	char		*startdir;
 Extern	int		sweeping;
-Extern	int		wctlfd;
 Extern	int		errorshouldabort;
 Extern	int		menuing;		/* menu action is pending; waiting for window to be indicated */
 Extern	int		snarfversion;	/* updated each time it is written */
