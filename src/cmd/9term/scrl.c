@@ -122,7 +122,7 @@ wscrsleep(Window *w, uint dt)
 }
 
 void
-wscroll(Window *w, int but)
+wscrclick(Window *w, int but)
 {
 	uint p0, oldp0;
 	Rectangle s;
@@ -180,4 +180,28 @@ wscroll(Window *w, int but)
 	}while(w->mc.m.buttons & (1<<(but-1)));
 	while(w->mc.m.buttons)
 		readmouse(&w->mc);
+}
+
+void
+wscrollnl(Window *w, int lines)
+{
+	uint org;
+	Point p;
+
+	if(lines == 0)
+		return;
+	if(lines < 0){
+		if(w->org == 0)
+			return;
+		org = wbacknl(w, w->org, -lines);
+	}else{
+		if(w->org == w->nr)
+			return;
+		p = w->f.r.min;
+		p.y += min(lines, w->f.maxlines) * w->f.font->height;
+		org = w->org + frcharofpt(&w->f, p);
+		if(lines > w->f.maxlines)
+			org = wforwardnl(w, org, lines-w->f.maxlines);
+	}
+	wsetorigin(w, org);
 }

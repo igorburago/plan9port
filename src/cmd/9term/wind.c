@@ -954,7 +954,7 @@ wmousectl(Window *w)
 		goto Return;
 	if(ptinrect(w->mc.m.xy, w->scrollr)){
 		if(but)
-			wscroll(w, but);
+			wscrclick(w, but);
 		goto Return;
 	}
 	if(but == 1)
