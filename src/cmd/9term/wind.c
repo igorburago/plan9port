@@ -44,7 +44,7 @@ wscale(Window *w, int n)
 }
 
 Window*
-wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
+wmk(Image *i, Channel *cm, Channel *ck, Channel *cctl, int scrolling, char *dir)
 {
 	Window *w;
 	Rectangle r;
@@ -68,14 +68,16 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->screenr = i->r;
 	r = insetrect(i->r, wscale(w, Selborder)+wscale(w, 1));
 	w->i = i;
-	w->mc = *mc;
+	//w->mc.image = i;
+	w->mc.display = i->display;
+	w->mc.c = cm;
 	w->ck = ck;
 	w->cctl = cctl;
 	w->cursorp = nil;
 	w->conswrite = chancreate(sizeof(Conswritemesg), 0);
-	w->consread =  chancreate(sizeof(Consreadmesg), 0);
-	w->mouseread =  chancreate(sizeof(Mousereadmesg), 0);
-	w->wctlread =  chancreate(sizeof(Consreadmesg), 0);
+	w->consread = chancreate(sizeof(Consreadmesg), 0);
+	w->mouseread = chancreate(sizeof(Mousereadmesg), 0);
+	w->wctlread = chancreate(sizeof(Consreadmesg), 0);
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+wscale(w, Scrollwid);
 	w->lastsr = ZR;
@@ -86,7 +88,7 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->id = ++id;
 	w->notefd = -1;
 	w->scrolling = scrolling;
-	w->dir = estrdup(startdir);
+	w->dir = estrdup(dir);
 	w->label = estrdup("<unnamed>");
 	r = insetrect(w->i->r, wscale(w, Selborder));
 	draw(w->i, r, cols[BACK], nil, w->f.entire.min);
@@ -1028,7 +1030,7 @@ wframescroll(Window *w, int dl)
 	uint dragq;
 
 	if(dl == 0){
-		wscrsleep(w, 100);
+		waitformouse(&w->mc, 100);
 		return;
 	}
 	dragq = w->org + (dl<0 ? w->f.p0 : w->f.p1);

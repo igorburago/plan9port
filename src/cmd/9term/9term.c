@@ -97,8 +97,6 @@ threadmain(int argc, char *argv[])
 		maxtab = 4;
 	free(p);
 
-	startdir = ".";
-
 	if(initdraw(derror, fontname, "9term") < 0)
 		sysfatal("initdraw: %r");
 
@@ -116,7 +114,7 @@ threadmain(int argc, char *argv[])
 	timerinit();
 	servedevtext();
 	rcpid = rcstart(argc, argv, &rcfd, &sfd);
-	w = new(screen, FALSE, scrolling, rcpid, ".", nil, nil);
+	w = new(screen, FALSE, scrolling, rcpid, ".");
 
 	threadcreate(keyboardthread, nil, STACK);
 	threadcreate(mousethread, nil, STACK);
@@ -240,10 +238,9 @@ wpointto(Point pt)
 }
 
 Window*
-new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **argv)
+new(Image *i, int hideit, int scrollit, int pid, char *dir)
 {
 	Window *w;
-	Mousectl *mc;
 	Channel *cm, *ck, *cctl;
 
 	if(i == nil)
@@ -253,12 +250,7 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	cctl = chancreate(sizeof(Wctlmesg), 4);
 	if(cm==nil || ck==nil || cctl==nil)
 		error("new: channel alloc failed");
-	mc = emalloc(sizeof(Mousectl));
-	*mc = *mousectl;
-/*	mc->image = i; */
-	mc->c = cm;
-	w = wmk(i, mc, ck, cctl, scrollit);
-	free(mc);	/* wmk copies *mc */
+	w = wmk(i, cm, ck, cctl, scrollit, dir);
 	window = erealloc(window, ++nwindow*sizeof(Window*));
 	window[nwindow-1] = w;
 	if(hideit){
@@ -271,8 +263,6 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	flushimage(display, 1);
 	wsetpid(w, pid, 1);
 	wsetname(w);
-	if(dir)
-		w->dir = estrdup(dir);
 	return w;
 }
 
