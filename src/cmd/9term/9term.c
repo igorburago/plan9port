@@ -200,31 +200,25 @@ resizethread(void *v)
 }
 
 void
-mousethread(void *v)
+mousethread(void *arg)
 {
-	int sending;
-	Mouse tmp;
+	int b;
+	Mouse mcopy;
 
-	USED(v);
-
-	sending = FALSE;
+	USED(arg);
 	threadsetname("mousethread");
+
 	while(readmouse(mousectl) >= 0){
-		if(sending){
-		Send:
-			/* send to window */
-			if(mouse->buttons == 0)
-				sending = FALSE;
-			else
-				wsetcursor(w, 0);
-			tmp = mousectl->m;
-			send(w->mc.c, &tmp);
-			continue;
-		}
-		if((mouse->buttons&(1|8|16)) || ptinrect(mouse->xy, w->scrollr)){
-			sending = TRUE;
-			goto Send;
-		}else if(mouse->buttons&2)
+		if((mouse->buttons&(Mbutton1|Mscrollsmask))
+		|| ptinrect(mouse->xy, w->scrollr))
+			do{
+				b = mouse->buttons;
+				if(b != 0)
+					wsetcursor(w, FALSE);
+				mcopy = mousectl->m;
+				send(w->mc.c, &mcopy);	/* send to window */
+			}while(b!=0 && readmouse(mousectl)>=0);
+		else if(mouse->buttons & Mbutton2)
 			button2menu(w);
 		else
 			bouncemouse(mouse);

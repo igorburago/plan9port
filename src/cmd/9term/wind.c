@@ -288,11 +288,11 @@ winctl(void *arg)
 /*				wkeyctl(w, r); */
 			break;
 		case WMouse:
-			if(w->mouseopen) {
+			if(w->mouseopen){
 				w->mouse.counter++;
 
 				/* queue click events */
-				if(!w->mouse.qfull && lastb != w->mc.m.buttons) {	/* add to ring */
+				if(!w->mouse.qfull && lastb!=w->mc.m.buttons){	/* add to ring */
 					mp = &w->mouse.queue[w->mouse.wi];
 					if(++w->mouse.wi == nelem(w->mouse.queue))
 						w->mouse.wi = 0;
@@ -302,7 +302,7 @@ winctl(void *arg)
 					mp->counter = w->mouse.counter;
 					lastb = w->mc.m.buttons;
 				}
-			} else
+			}else
 				wmousectl(w);
 			break;
 		case WMouseread:
@@ -310,11 +310,11 @@ winctl(void *arg)
 			/* if the queue has filled, we discard all the events it contained. */
 			/* the intent is to discard frantic clicking by the user during long latencies. */
 			w->mouse.qfull = FALSE;
-			if(w->mouse.wi != w->mouse.ri) {
+			if(w->mouse.wi != w->mouse.ri){
 				m = w->mouse.queue[w->mouse.ri];
 				if(++w->mouse.ri == nelem(w->mouse.queue))
 					w->mouse.ri = 0;
-			} else {
+			}else{
 				m.m = w->mc.m;
 				m.counter = w->mouse.counter;
 			}
@@ -594,11 +594,6 @@ wkeyctl(Window *w, Rune r)
 		case Kdown:
 			n = w->f.maxlines/3;
 			goto case_Down;
-		case Kscrollonedown:
-			n = mousescrollsize(w->f.maxlines);
-			if(n <= 0)
-				n = 1;
-			goto case_Down;
 		case Kpgdown:
 			n = 2*w->f.maxlines/3;
 		case_Down:
@@ -607,11 +602,6 @@ wkeyctl(Window *w, Rune r)
 			return;
 		case Kup:
 			n = w->f.maxlines/3;
-			goto case_Up;
-		case Kscrolloneup:
-			n = mousescrollsize(w->f.maxlines);
-			if(n <= 0)
-				n = 1;
 			goto case_Up;
 		case Kpgup:
 			n = 2*w->f.maxlines/3;
@@ -933,34 +923,41 @@ wlook(Window *w)
 void
 wmousectl(Window *w)
 {
-	int but;
+	Mouse *m;
+	int lines, but;
 
-	if(w->mc.m.buttons == 1)
-		but = 1;
-	else if(w->mc.m.buttons == 2)
-		but = 2;
-	else if(w->mc.m.buttons == 4)
-		but = 3;
-	else{
-		if(w->mc.m.buttons == 8)
-			wkeyctl(w, Kscrolloneup);
-		if(w->mc.m.buttons == 16)
-			wkeyctl(w, Kscrollonedown);
-		return;
-	}
-
-	incref(&w->ref);		/* hold up window while we track */
 	if(w->deleted)
-		goto Return;
-	if(ptinrect(w->mc.m.xy, w->scrollr)){
-		if(but)
-			wscrclick(w, but);
+		return;
+	incref(&w->ref);	/* hold up window while we track */
+	m = &w->mc.m;
+
+	/* Scroll buttons, wheels, trackpad gestures, etc. */
+	if(m->buttons & Mscrollsmask){
+		lines = mouselinesnapscroll(&w->mousescroll, m, w->f.font->height, w->f.maxlines);
+		if(lines != 0)
+			wscrollnl(w, lines);
 		goto Return;
 	}
-	if(but == 1)
+
+	/* Clicks and drags on the scroll bar. */
+	if(ptinrect(m->xy, w->scrollr)){
+		if(m->buttons == Mbutton1)
+			but = 1;
+		else if(m->buttons == Mbutton2)
+			but = 2;
+		else if(m->buttons == Mbutton3)
+			but = 3;
+		else
+			goto Return;
+		wscrclick(w, but);
+		goto Return;
+	}
+
+	/* All other clicks, chords, and drags. */
+	if(m->buttons & Mbutton1)
 		wselect(w);
-	/* else all is handled by main process */
-   Return:
+
+Return:
 	wclose(w);
 }
 
@@ -1104,11 +1101,11 @@ wselect(Window *w)
 		clickwin = nil;
 	wsetselect(w, q0, q1);
 	flushimage(display, 1);
-	while(w->mc.m.buttons){
+	while(w->mc.m.buttons != 0){
 		w->mc.m.msec = 0;
 		b = w->mc.m.buttons;
-		if(b & 6){
-			if(b & 2){
+		if(b & (Mbutton2|Mbutton3)){
+			if(b & Mbutton2){
 				wsnarf(w);
 				wcut(w);
 			}else{

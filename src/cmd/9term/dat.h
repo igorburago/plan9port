@@ -27,12 +27,6 @@ enum
 	FALSE		= 0
 };
 
-enum
-{
-	Kscrolloneup = KF|0x20,
-	Kscrollonedown = KF|0x21
-};
-
 enum	/* control messages */
 {
 	Wakeup,
@@ -101,6 +95,7 @@ struct Window
 	Image		*i;
 	Mousectl		mc;
 	Mouseinfo	mouse;
+	Linesnapscroll	mousescroll;
 	Channel		*ck;			/* chan(Rune[10]) */
 	Channel		*cctl;		/* chan(Wctlmesg)[20] */
 	Channel		*conswrite;	/* chan(Conswritemesg) */
