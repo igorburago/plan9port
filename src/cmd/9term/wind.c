@@ -583,8 +583,8 @@ namecomplete(Window *w)
 void
 wkeyctl(Window *w, Rune r)
 {
-	uint q0 ,q1;
-	int n, nb, nr;
+	uint q0, q1;
+	int nb, nr;
 	Rune *rp;
 
 	if(r == 0)
@@ -595,23 +595,17 @@ wkeyctl(Window *w, Rune r)
 	/* navigation keys work only when mouse is not open */
 	if(!w->mouseopen)
 		switch(r){
-		case Kdown:
-			n = w->f.maxlines/3;
-			goto case_Down;
-		case Kpgdown:
-			n = 2*w->f.maxlines/3;
-		case_Down:
-			q0 = w->org+frcharofpt(&w->f, Pt(w->f.r.min.x, w->f.r.min.y+n*w->f.font->height));
-			wsetorigin(w, q0);
-			return;
 		case Kup:
-			n = w->f.maxlines/3;
-			goto case_Up;
+			wscrollnl(w, -max(w->f.maxlines/3, 1), TRUE);
+			return;
+		case Kdown:
+			wscrollnl(w, +max(w->f.maxlines/3, 1), TRUE);
+			return;
 		case Kpgup:
-			n = 2*w->f.maxlines/3;
-		case_Up:
-			q0 = wbacknl(w, w->org, n);
-			wsetorigin(w, q0);
+			wscrollnl(w, -max(2*w->f.maxlines/3, 1), TRUE);
+			return;
+		case Kpgdown:
+			wscrollnl(w, +max(2*w->f.maxlines/3, 1), TRUE);
 			return;
 		case Kleft:
 			if(w->q0 > 0){
@@ -628,18 +622,28 @@ wkeyctl(Window *w, Rune r)
 			}
 			return;
 		case Khome:
-			if(w->org > w->iq1) {
-				q0 = wbacknl(w, w->iq1, 1);
+			if(w->org > w->iq1)
+				q0 = w->iq1;
+			else
+				q0 = 0;
+			if(q0 == 0)
+				wshow(w, q0);
+			else{
+				q0 = wbacknl(w, q0, w->f.maxlines>1 ? 1 : 0);
 				wsetorigin(w, q0);
-			} else
-				wshow(w, 0);
+			}
 			return;
 		case Kend:
-			if(w->iq1 > w->org+w->f.nchars) {
-				q0 = wbacknl(w, w->iq1, 1);
+			if(w->org+w->f.nchars < w->iq1)
+				q0 = w->iq1;
+			else
+				q0 = w->nr;
+			if(q0 == w->nr)
+				wshow(w, q0);
+			else{
+				q0 = wbacknl(w, q0, w->f.maxlines>1 ? 1 : 0);
 				wsetorigin(w, q0);
-			} else
-				wshow(w, w->nr);
+			}
 			return;
 		case 0x01:	/* ^A: beginning of line */
 			if(w->q0==0 || w->q0==w->qh || w->r[w->q0-1]=='\n')
@@ -650,7 +654,7 @@ wkeyctl(Window *w, Rune r)
 			return;
 		case 0x05:	/* ^E: end of line */
 			q0 = w->q0;
-			while(q0 < w->nr && w->r[q0]!='\n')
+			while(q0<w->nr && w->r[q0]!='\n')
 				q0++;
 			wsetselect(w, q0, q0);
 			wshow(w, w->q0);
@@ -1581,9 +1585,8 @@ wforwardnl(Window *win, uint p, uint n)
 void
 wshow(Window *w, uint q0)
 {
-	int qe;
+	uint qe, q;
 	int nl;
-	uint q;
 
 	qe = w->org+w->f.nchars;
 	if(w->org<=q0 && (q0<qe || (q0==qe && qe==w->nr)))
