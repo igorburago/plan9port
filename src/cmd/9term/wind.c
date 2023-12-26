@@ -1483,24 +1483,61 @@ wclickmatch(Window *w, int cl, int cr, int dir, uint *q)
 	return cl=='\n' && nest==1;
 }
 
-
 uint
-wbacknl(Window *w, uint p, uint n)
+wbacknl(Window *win, uint p, uint n)
 {
-	int i, j;
+	Font *font;
+	int mintab, maxtab, maxw;
+	int w, wl, wr, seentab;
+	uint p0;
+	Rune r;
 
-	/* look for start of this line if n==0 */
-	if(n==0 && p>0 && w->r[p-1]!='\n')
+	font = win->f.font;
+	mintab = stringnwidth(font, " ", 1);
+	maxtab = win->f.maxtab;
+	maxw = Dx(win->f.r);
+
+	/*
+	 * Skip over n display lines' worth of runes going backwards from p.
+	 * n==0 has the same meaning as n==1, except there is no need to go
+	 * anywhere if p is at a (physical) line boundary.
+	 */
+	if(n==0 && p>0 && win->r[p-1]!='\n')
 		n = 1;
-	i = n;
-	while(i-->0 && p>0){
-		--p;	/* it's at a newline now; back over it */
-		if(p == 0)
-			break;
-		/* at 128 chars, call it a line anyway */
-		for(j=128; --j>0 && p>0; p--)
-			if(w->r[p-1]=='\n')
+	for(; n>0 && p>0; n--){
+		/* Loop invariant: p is at the first rune after a display line break. */
+		if(win->r[p-1] == '\n')
+			p--;
+		/*
+		 * wl is the width of the (non-tab) runes to the left of the last
+		 * seen tab; wr is the width of everything to the right of that tab
+		 * until the end of the current display line (until, and excluding,
+		 * the rune that p is at prior to entering the inner loop).
+		 */
+		seentab = FALSE;
+		w = wl = wr = 0;
+		for(p0=p; p>0; p--){
+			r = win->r[p-1];
+			if(r == '\n')
 				break;
+			if(r == '\t'){
+				seentab = TRUE;
+				wl = 0;
+				wr = w;
+				w += maxtab;
+			}else{
+				wl += runestringnwidth(font, &r, 1);
+				w = wl;
+				if(seentab)
+					w += wr + max(mintab, maxtab-wl%maxtab);
+			}
+			if(w > maxw){
+				/* If even a single rune does not fit, force one anyway. */
+				if(p == p0)
+					p--;
+				break;
+			}
+		}
 	}
 	return p;
 }
