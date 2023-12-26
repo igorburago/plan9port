@@ -182,7 +182,7 @@ void	wsendctlmesg(Window*, int, Rectangle, Image*);
 void	wsetcols(Window*);
 void	wsetcursor(Window*, int);
 void	wsetname(Window*);
-void	wsetorigin(Window*, uint, int);
+void	wsetorigin(Window*, uint);
 void	wsetpid(Window*, int, int);
 void	wsetselect(Window*, uint, uint);
 void	wshow(Window*, uint);

@@ -603,7 +603,7 @@ wkeyctl(Window *w, Rune r)
 			n = 2*w->f.maxlines/3;
 		case_Down:
 			q0 = w->org+frcharofpt(&w->f, Pt(w->f.r.min.x, w->f.r.min.y+n*w->f.font->height));
-			wsetorigin(w, q0, TRUE);
+			wsetorigin(w, q0);
 			return;
 		case Kup:
 			n = w->f.maxlines/3;
@@ -617,7 +617,7 @@ wkeyctl(Window *w, Rune r)
 			n = 2*w->f.maxlines/3;
 		case_Up:
 			q0 = wbacknl(w, w->org, n);
-			wsetorigin(w, q0, TRUE);
+			wsetorigin(w, q0);
 			return;
 		case Kleft:
 			if(w->q0 > 0){
@@ -636,14 +636,14 @@ wkeyctl(Window *w, Rune r)
 		case Khome:
 			if(w->org > w->iq1) {
 				q0 = wbacknl(w, w->iq1, 1);
-				wsetorigin(w, q0, TRUE);
+				wsetorigin(w, q0);
 			} else
 				wshow(w, 0);
 			return;
 		case Kend:
 			if(w->iq1 > w->org+w->f.nchars) {
 				q0 = wbacknl(w, w->iq1, 1);
-				wsetorigin(w, q0, TRUE);
+				wsetorigin(w, q0);
 			} else
 				wshow(w, w->nr);
 			return;
@@ -1041,7 +1041,7 @@ wframescroll(Window *w, int dl)
 		else
 			wsetselect(w, selectq, w->org+w->f.p1);
 	}
-	wsetorigin(w, q0, TRUE);
+	wsetorigin(w, q0);
 }
 
 void
@@ -1602,30 +1602,19 @@ wshow(Window *w, uint q0)
 		q = wbacknl(w, q0, nl);
 		/* avoid going backwards if trying to go forwards - long lines! */
 		if(!(q0>w->org && q<w->org))
-			wsetorigin(w, q, TRUE);
+			wsetorigin(w, q);
 		while(q0 > w->org+w->f.nchars)
-			wsetorigin(w, w->org+1, FALSE);
+			wsetorigin(w, wforwardnl(w, w->org, 1));
 	}
 }
 
 void
-wsetorigin(Window *w, uint org, int exact)
+wsetorigin(Window *w, uint org)
 {
-	int i, a, fixup;
+	int a, fixup;
 	Rune *r;
 	uint n;
 
-	if(org>0 && !exact){
-		/* org is an estimate of the char posn; find a newline */
-		/* don't try harder than 256 chars */
-		for(i=0; i<256 && org<w->nr; i++){
-			if(w->r[org] == '\n'){
-				org++;
-				break;
-			}
-			org++;
-		}
-	}
 	a = org-w->org;
 	fixup = 0;
 	if(a>=0 && a<w->f.nchars){

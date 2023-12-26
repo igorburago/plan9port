@@ -156,7 +156,7 @@ wscroll(Window *w, int but)
 				else
 					p0 = w->nr*(y-s.min.y)/h;
 				if(oldp0 != p0)
-					wsetorigin(w, p0, FALSE);
+					wsetorigin(w, wforwardnl(w, p0, 0));
 				oldp0 = p0;
 				readmouse(&w->mc);
 				continue;
@@ -166,7 +166,7 @@ wscroll(Window *w, int but)
 			else
 				p0 = w->org+frcharofpt(&w->f, Pt(s.max.x, my));
 			if(oldp0 != p0)
-				wsetorigin(w, p0, TRUE);
+				wsetorigin(w, p0);
 			oldp0 = p0;
 			/* debounce */
 			if(first){
