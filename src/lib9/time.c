@@ -10,7 +10,8 @@ p9times(long *t)
 {
 	struct rusage ru, cru;
 
-	if(getrusage(0, &ru) < 0 || getrusage(-1, &cru) < 0)
+	if(getrusage(RUSAGE_SELF, &ru)<0
+	|| getrusage(RUSAGE_CHILDREN, &cru)<0)
 		return -1;
 
 	t[0] = ru.ru_utime.tv_sec*1000 + ru.ru_utime.tv_usec/1000;
@@ -26,13 +27,10 @@ double
 p9cputime(void)
 {
 	long t[4];
-	double d;
 
 	if(p9times(t) < 0)
 		return -1.0;
-
-	d = (double)t[0]+(double)t[1]+(double)t[2]+(double)t[3];
-	return d/1000.0;
+	return ((double)t[0]+(double)t[1]+(double)t[2]+(double)t[3])/1000.0;
 }
 
 vlong
@@ -40,18 +38,18 @@ p9nsec(void)
 {
 	struct timeval tv;
 
-	if(gettimeofday(&tv, 0) < 0)
+	if(gettimeofday(&tv, nil) < 0)
 		return -1;
-
-	return (vlong)tv.tv_sec*1000*1000*1000 + tv.tv_usec*1000;
+	return (vlong)tv.tv_sec*1000*1000*1000 + (vlong)tv.tv_usec*1000;
 }
 
 long
 p9time(long *tt)
 {
 	long t;
-	t = time(0);
-	if(tt)
+
+	t = time(nil);
+	if(tt != nil)
 		*tt = t;
 	return t;
 }

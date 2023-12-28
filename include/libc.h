@@ -312,7 +312,6 @@ extern	double	fmod(double, double);
 /*
  * Time-of-day
  */
-
 typedef
 struct Tm
 {
@@ -335,6 +334,7 @@ extern	char*	p9ctime(long);
 extern	double	p9cputime(void);
 extern	long	p9times(long*);
 extern	long	p9tm2sec(Tm*);
+extern	long	p9time(long*);
 extern	vlong	p9nsec(void);
 
 #ifndef NOPLAN9DEFINES
@@ -345,6 +345,7 @@ extern	vlong	p9nsec(void);
 #define	cputime		p9cputime
 #define	times		p9times
 #define	tm2sec		p9tm2sec
+#define	time		p9time
 #define	nsec		p9nsec
 #endif
 
@@ -419,7 +420,6 @@ extern	uvlong	strtoull(char*, char**, int);
  */
 extern	void	sysfatal(char*, ...);
 extern	void	p9syslog(int, char*, char*, ...);
-extern	long	p9time(long*);
 /* extern	int	tolower(int); <ctype.h> */
 /* extern	int	toupper(int); <ctype.h> */
 extern	void	needstack(int);
@@ -429,28 +429,27 @@ extern	void	(*_pin)(void);
 extern	void	(*_unpin)(void);
 
 #ifndef NOPLAN9DEFINES
-#define atexit		p9atexit
-#define atexitdont	p9atexitdont
-#define atoi		p9atoi
-#define atol		p9atol
-#define atoll		p9atoll
-#define encrypt		p9encrypt
-#define decrypt		p9decrypt
-#undef frexp
-#define frexp		p9frexp
-#define getenv		p9getenv
+#define	atexit		p9atexit
+#define	atexitdont	p9atexitdont
+#define	atoi		p9atoi
+#define	atol		p9atol
+#define	atoll		p9atoll
+#define	encrypt		p9encrypt
+#define	decrypt		p9decrypt
+#undef	frexp
+#define	frexp		p9frexp
+#define	getenv		p9getenv
 #define	getwd		p9getwd
 #define	longjmp		p9longjmp
-#undef  setjmp
-#define setjmp		p9setjmp
-#define putenv		p9putenv
-#define notejmp		p9notejmp
-#define jmp_buf		p9jmp_buf
-#define time		p9time
-#define pow10		p9pow10
-#define strtod		fmtstrtod
-#define charstod	fmtcharstod
-#define syslog		p9syslog
+#undef	setjmp
+#define	setjmp		p9setjmp
+#define	putenv		p9putenv
+#define	notejmp		p9notejmp
+#define	jmp_buf		p9jmp_buf
+#define	pow10		p9pow10
+#define	strtod		fmtstrtod
+#define	charstod	fmtcharstod
+#define	syslog		p9syslog
 #endif
 
 /*
