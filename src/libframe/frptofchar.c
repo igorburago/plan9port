@@ -74,8 +74,10 @@ frcharofpt(Frame *f, Point pt)
 	ulong p;
 	Rune r;
 
-	pt = _frgrid(f, pt);
 	qt = f->r.min;
+	if(pt.y < qt.y)
+		return 0;
+	pt = _frgrid(f, pt);
 	for(b=f->box,bn=0,p=0; bn<f->nbox && qt.y<pt.y; bn++,b++){
 		_frcklinewrap(f, &qt, b);
 		if(qt.y >= pt.y)
