@@ -10,12 +10,35 @@ region(ulong p0, ulong p1)
 	return (p0 > p1) - (p0 < p1);
 }
 
+/*
+ * A note on the necessity of the untick00sel flag in frselectscroll():
+ *
+ * We have no way of knowing the origin of the frame's viewport and
+ * the true extent of the selection outside of it, so by default we
+ * accord with frdrawsel() assuming that a p0==p1 selection should
+ * always be ticked. However, when the grand selection extends above
+ * the frame and p0==p1==0, it is not correct to tick. This typically
+ * occurs when the user scroll-selects down until the beginning of the
+ * selection is out of frame, and then goes on to scroll-select up.
+ *
+ * Normally, an application can correct this behavior of frdrawsel()
+ * by calling frtick() itself, but here, between calls to (*scroll)(),
+ * there is no way for it to do so before the image is flushed and the
+ * next mouse event is polled. Furthermore, if the mouse stays inside
+ * the frame for a while, the application will not even be notified
+ * of the changes in selection since (*scroll)() is not going to be
+ * called, and p0==p1==0 might come about in the meantime.
+ *
+ * Hence the untick00sel flag as a means for the scroll function to
+ * indicate whether the default tick should be kept when p0==p1==0
+ * happens while the viewport is at the current scroll offset.
+ */
 void
 frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 {
 	ulong p0, p1, q;
 	Point mp, pt0, pt1, qt;
-	int b, reg, scrollvel, prevvel;
+	int b, reg, scrollvel, prevvel, untick00sel;
 
 	b = mc->m.buttons;	/* when called, button 1 is down */
 	mp = mc->m.xy;
@@ -30,6 +53,7 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 
 	f->selecting = 1;
 	f->modified = 0;
+	untick00sel = 0;
 	scrollvel = 0;
 	reg = 0;
 	do{
@@ -37,12 +61,12 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			prevvel = scrollvel;
 			if(mp.y < f->r.min.y){
 				scrollvel = -1 - (f->r.min.y-mp.y)/(int)f->font->height;
-				(*scroll)(f, state, scrollvel, prevvel>=0);
+				(*scroll)(f, state, scrollvel, prevvel>=0, &untick00sel);
 				p0 = f->p1;
 				p1 = f->p0;
 			}else if(mp.y > f->r.max.y){
 				scrollvel = +1 + (mp.y-f->r.max.y)/(int)f->font->height;
-				(*scroll)(f, state, scrollvel, prevvel<=0);
+				(*scroll)(f, state, scrollvel, prevvel<=0, &untick00sel);
 				p0 = f->p0;
 				p1 = f->p1;
 			}else
@@ -83,6 +107,8 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			p1 = q;
 			pt1 = qt;
 		}
+		if(p0==0 && p1==0 && untick00sel)	/* see the note above */
+			frtick(f, pt0, 0);
 		f->selecting = 1;
 		f->modified = 0;
 		if(p0 < p1){
@@ -93,7 +119,7 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			f->p1 = p0;
 		}
 		if(scrollvel != 0)
-			(*scroll)(f, state, 0, 0);
+			(*scroll)(f, state, 0, 0, &untick00sel);
 		flushimage(f->display, 1);
 		if(scrollvel == 0)
 			readmouse(mc);

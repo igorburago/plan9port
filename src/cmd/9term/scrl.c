@@ -253,7 +253,7 @@ wscrclick(Window *w, int but)
 }
 
 static void
-wframescroll(Frame *f, void *state, int velocity, int firstinstreak)
+wframescroll(Frame *f, void *state, int velocity, int firstinstreak, int *untick00sel)
 {
 	Winfrselect *s;
 	Window *w;
@@ -276,6 +276,11 @@ wframescroll(Frame *f, void *state, int velocity, int firstinstreak)
 		wsetselect(w, dragq, s->startq);
 	else
 		wsetselect(w, s->startq, dragq);
+	/*
+	 * If the dot extends above the origin, do not tick when f->p0==f->p1==0
+	 * (while scrolling up) — see ../../libframe/frselect.c:/untick00sel/.
+	 */
+	*untick00sel = (w->q0 < w->org);
 }
 
 void

@@ -253,7 +253,7 @@ textscrclick(Text *t, int but)
 }
 
 static void
-textframescroll(Frame *f, void *state, int velocity, int firstinstreak)
+textframescroll(Frame *f, void *state, int velocity, int firstinstreak, int *untick00sel)
 {
 	Textfrselect *s;
 	Text *t;
@@ -283,6 +283,11 @@ textframescroll(Frame *f, void *state, int velocity, int firstinstreak)
 		textsetselect(t, dragq, s->startq);
 	else
 		textsetselect(t, s->startq, dragq);
+	/*
+	 * If the dot extends above the origin, do not tick when f->p0==f->p1==0
+	 * (while scrolling up) — see ../../libframe/frselect.c:/untick00sel/.
+	 */
+	*untick00sel = (t->q0 < t->org);
 }
 
 void

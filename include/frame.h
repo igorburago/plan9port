@@ -9,7 +9,7 @@ AUTOLIB(frame)
 typedef struct Frbox	Frbox;
 typedef struct Frame	Frame;
 
-typedef void Frscrollfn(Frame*, void*, int, int);
+typedef void Frscrollfn(Frame*, void*, int, int, int*);
 
 enum
 {
