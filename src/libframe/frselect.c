@@ -118,11 +118,14 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			f->p0 = p1;
 			f->p1 = p0;
 		}
-		if(scrollvel != 0)
+		if(scrollvel != 0){
 			(*scroll)(f, state, 0, 0, &untick00sel);
-		flushimage(f->display, 1);
-		if(scrollvel == 0)
+			flushimage(f->display, 1);
+		}else{
+			if(f->display != mc->display)	/* readmouse() flushes the display, as well */
+				flushimage(f->display, 1);
 			readmouse(mc);
+		}
 		mp = mc->m.xy;
 	}while(mc->m.buttons == b);
 	f->selecting = 0;
