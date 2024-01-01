@@ -1000,50 +1000,15 @@ wdelete(Window *w, uint q0, uint q1)
 	}
 }
 
-
-static Window	*clickwin;
-static uint	clickmsec;
-static Window	*selectwin;
-static uint	selectq;
-
-/*
- * called from frame library
- */
-void
-framescroll(Frame *f, void *state, int dl, int firstinstreak)
-{
-	USED(state);
-	USED(firstinstreak);
-	if(f != &selectwin->f)
-		error("frameselect not right frame");
-	wframescroll(selectwin, dl);
-}
-
-void
-wframescroll(Window *w, int dl)
-{
-	uint dragq;
-
-	if(dl == 0){
-		waitformouse(&w->mc, 100);
-		return;
-	}
-	dragq = w->org + (dl<0 ? w->f.p0 : w->f.p1);
-	wscrollnl(w, dl, FALSE);
-	if(dragq < selectq)
-		wsetselect(w, dragq, selectq);
-	else
-		wsetselect(w, selectq, dragq);
-}
-
 void
 wselect(Window *w)
 {
-	uint q0, q1;
+	enum { Doubleclickmsec = 500 };
+	static Window *clickwin;
+	static uint clickmsec;
+	uint q0, q1, selectq;
 	int b, x, y, first;
 
-	first = 1;
-	selectwin = w;
 	/*
 	 * Double-click immediately if it might make sense.
 	 */
@@ -1051,7 +1016,7 @@ wselect(Window *w)
 	q0 = w->q0;
 	q1 = w->q1;
 	selectq = w->org+frcharofpt(&w->f, w->mc.m.xy);
-	if(clickwin==w && w->mc.m.msec-clickmsec<500)
+	if(clickwin==w && w->mc.m.msec-clickmsec<Doubleclickmsec)
 	if(q0==q1 && selectq==w->q0){
 		wdoubleclick(w, &q0, &q1);
 		wsetselect(w, q0, q1);
@@ -1069,7 +1034,7 @@ wselect(Window *w)
 		selectq = q0;
 	}
 	if(w->mc.m.buttons == b){
-		frselectscroll(&w->f, &w->mc, framescroll, nil);
+		wframeselect(w, selectq);
 		/* horrible botch: while asleep, may have lost selection altogether */
 		if(selectq > w->nr)
 			selectq = w->org + w->f.p0;
@@ -1083,7 +1048,7 @@ wselect(Window *w)
 			q1 = w->org+w->f.p1;
 	}
 	if(q0 == q1){
-		if(q0==w->q0 && clickwin==w && w->mc.m.msec-clickmsec<500){
+		if(q0==w->q0 && clickwin==w && w->mc.m.msec-clickmsec<Doubleclickmsec){
 			wdoubleclick(w, &q0, &q1);
 			clickwin = nil;
 		}else{
@@ -1094,6 +1059,7 @@ wselect(Window *w)
 		clickwin = nil;
 	wsetselect(w, q0, q1);
 	flushimage(display, 1);
+	first = TRUE;
 	while(w->mc.m.buttons != 0){
 		w->mc.m.msec = 0;
 		b = w->mc.m.buttons;
@@ -1103,7 +1069,7 @@ wselect(Window *w)
 				wcut(w);
 			}else{
 				if(first){
-					first = 0;
+					first = FALSE;
 					riogetsnarf();
 				}
 				wpaste(w);

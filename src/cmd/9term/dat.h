@@ -152,7 +152,7 @@ void	wdelete(Window*, uint, uint);
 void	wdoubleclick(Window*, uint*, uint*);
 void	wfill(Window*);
 uint	wforwardnl(Window*, uint, uint);
-void	wframescroll(Window*, int);
+void	wframeselect(Window*, uint);
 int	winborder(Window*, Point);
 void	winctl(void*);
 uint	winsert(Window*, Rune*, int, uint);

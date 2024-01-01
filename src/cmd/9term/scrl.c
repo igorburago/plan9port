@@ -10,17 +10,21 @@
 #include "dat.h"
 #include "fns.h"
 
+typedef struct Winfrselect	Winfrselect;
+
 /*
  * Parameters controlling the frequency and magnitude of scrolling
- * updates for mouse dragging during buttons 1 and 3 scrollbar
- * scrubbing (see scrl.c:/^wscrclick/).
+ * updates for mouse-dragging during (a) buttons 1 and 3 scrollbar
+ * scrubbing (see scrl.c:/^wscrclick/) and (b) button 1 text
+ * selection (see scrl.c:/^wframescroll/).
  *
  * By moving the mouse vertically, the user controls the scrolling
  * speed in the number of display lines to skip over per second, to
  * the constant factor of 1000/Dragscrollpacemsec. For example, when
  * Dragscrollpacemsec is 250, the scrolling speed at any given moment
- * is 4*n lines/s, where n is the number of full lines that fit between
- * the mouse location and the top edge of the text frame.
+ * is 4*n (a) or 4*n+1 (b) lines per second, where n is the number of
+ * full lines that fit between the mouse location and the top (a) or
+ * the nearest (b) edge of the text frame.
  *
  * The viewport offset is updated each time a new mouse event arrives
  * or at least every Dragscrollsleepmsec, with an increment equal to
@@ -34,6 +38,13 @@ enum
 {
 	Dragscrollpacemsec	= 250,
 	Dragscrollsleepmsec	= 30
+};
+
+struct Winfrselect
+{
+	Window		*win;
+	uint		startq;
+	Dragscroll	scroll;
 };
 
 static void
@@ -237,6 +248,43 @@ wscrclick(Window *w, int but)
 	}
 	while(w->mc.m.buttons != 0)
 		recv(w->mc.c, &w->mc.m);
+}
+
+static void
+wframescroll(Frame *f, void *state, int velocity, int firstinstreak)
+{
+	Winfrselect *s;
+	Window *w;
+	int delta;
+	uint dragq;
+
+	s = state;
+	w = s->win;	/* f==w->f */
+	if(velocity == 0){
+		dragscrollpollmouse(&s->scroll, &w->mc, Dragscrollsleepmsec);
+		return;
+	}
+	if(firstinstreak)
+		dragscrollreset(&s->scroll, &w->mc.m, 0);
+	dragq = w->org + (velocity<0 ? f->p0 : f->p1);
+	delta = dragscrolldelta(&s->scroll, velocity, Dragscrollpacemsec);
+	if(delta != 0)
+		wscrollnl(w, delta, FALSE);
+	if(dragq < s->startq)
+		wsetselect(w, dragq, s->startq);
+	else
+		wsetselect(w, s->startq, dragq);
+}
+
+void
+wframeselect(Window *w, uint startq)
+{
+	Winfrselect s;
+
+	memset(&s, 0, sizeof(s));
+	s.win = w;
+	s.startq = startq;
+	frselectscroll(&w->f, &w->mc, wframescroll, &s);
 }
 
 void
