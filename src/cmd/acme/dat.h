@@ -214,7 +214,7 @@ void	textdoubleclick(Text*, uint*, uint*);
 int	textendswithnl(Text*);
 void	textfill(Text*);
 uint	textforwardnl(Text*, uint, uint);
-void	textframescroll(Text*, int);
+void	textframeselect(Text*, uint);
 void	textinit(Text*, File*, Rectangle, Reffont*, Image**);
 void	textinsert(Text*, uint, Rune*, uint, int);
 int	textload(Text*, uint, char*, int);

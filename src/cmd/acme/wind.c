@@ -206,7 +206,7 @@ winresize(Window *w, Rectangle r, int safe, int keepextra)
 		 * As the tag expands or collapses, take the mouse cursor along.
 		 * However, if we are expanding the tag because of an ongoing
 		 * mouse drag during text selection, do not interfere with it
-		 * (see text.c:/^textselect\(/ and text.c:/^textframescroll/).
+		 * (see text.c:/^textselect\(/ and scrl.c:/^textframescroll/).
 		 */
 		if(!w->tag.fr.selecting){
 			/* If mouse is in the tag, pull it up as the tag collapses. */

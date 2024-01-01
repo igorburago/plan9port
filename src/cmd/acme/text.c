@@ -929,57 +929,16 @@ textcommit(Text *t, int tofile)
 	t->ncache = 0;
 }
 
-static	Text	*clicktext;
-static	uint	clickmsec;
-static	Text	*selecttext;
-static	uint	selectq;
-
-/*
- * called from frame library
- */
-void
-framescroll(Frame *f, void *state, int dl, int firstinstreak)
-{
-	USED(state);
-	USED(firstinstreak);
-	if(f != &selecttext->fr)
-		error("frameselect not right frame");
-	textframescroll(selecttext, dl);
-}
-
-void
-textframescroll(Text *t, int dl)
-{
-	uint dragq;
-
-	if(dl == 0){
-		waitformouse(mousectl, 100);
-		return;
-	}
-	if(dl>0 && t->what==Tag && !t->w->tagexpand){
-		textsetselect(t, t->org+t->fr.p0, t->org+t->fr.p1);
-		t->w->tagexpand = TRUE;
-		t->w->tagsafe = FALSE;
-		winresize(t->w, t->w->r, TRUE, TRUE);
-		return;
-	}
-	dragq = t->org + (dl<0 ? t->fr.p0 : t->fr.p1);
-	textscrollnl(t, dl, FALSE);
-	if(dragq < selectq)
-		textsetselect(t, dragq, selectq);
-	else
-		textsetselect(t, selectq, dragq);
-}
-
 void
 textselect(Text *t)
 {
-	uint q0, q1;
+	enum { Doubleclickmsec = 500 };
+	static Text *clicktext;
+	static uint clickmsec;
+	uint q0, q1, selectq;
 	int b, x, y;
-	int state;
-	enum { None, Cut, Paste };
+	enum { None, Cut, Paste } state;
 
-	selecttext = t;
 	/*
 	 * To have double-clicking and chording, we double-click
 	 * immediately if it might make sense.
@@ -988,7 +947,7 @@ textselect(Text *t)
 	q0 = t->q0;
 	q1 = t->q1;
 	selectq = t->org+frcharofpt(&t->fr, mouse->xy);
-	if(clicktext==t && mouse->msec-clickmsec<500)
+	if(clicktext==t && mouse->msec-clickmsec<Doubleclickmsec)
 	if(q0==q1 && selectq==q0){
 		textdoubleclick(t, &q0, &q1);
 		textsetselect(t, q0, q1);
@@ -1006,7 +965,7 @@ textselect(Text *t)
 		selectq = q0;
 	}
 	if(mouse->buttons == b){
-		frselectscroll(&t->fr, mousectl, framescroll, nil);
+		textframeselect(t, selectq);
 		/* horrible botch: while asleep, may have lost selection altogether */
 		if(selectq > t->file->b.nc)
 			selectq = t->org + t->fr.p0;
@@ -1020,7 +979,7 @@ textselect(Text *t)
 			q1 = t->org+t->fr.p1;
 	}
 	if(q0 == q1){
-		if(q0==t->q0 && clicktext==t && mouse->msec-clickmsec<500){
+		if(q0==t->q0 && clicktext==t && mouse->msec-clickmsec<Doubleclickmsec){
 			textdoubleclick(t, &q0, &q1);
 			clicktext = nil;
 		}else{

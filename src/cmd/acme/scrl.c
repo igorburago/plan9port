@@ -12,17 +12,21 @@
 #include "dat.h"
 #include "fns.h"
 
+typedef struct Textfrselect	Textfrselect;
+
 /*
  * Parameters controlling the frequency and magnitude of scrolling
- * updates for mouse dragging during buttons 1 and 3 scrollbar
- * scrubbing (see scrl.c:/^textscrclick/).
+ * updates for mouse-dragging during (a) buttons 1 and 3 scrollbar
+ * scrubbing (see scrl.c:/^textscrclick/) and (b) button 1 text
+ * selection (see scrl.c:/^textframescroll/).
  *
  * By moving the mouse vertically, the user controls the scrolling
  * speed in the number of display lines to skip over per second, to
  * the constant factor of 1000/Dragscrollpacemsec. For example, when
  * Dragscrollpacemsec is 250, the scrolling speed at any given moment
- * is 4*n lines/s, where n is the number of full lines that fit between
- * the mouse location and the top edge of the text frame.
+ * is 4*n (a) or 4*n+1 (b) lines per second, where n is the number of
+ * full lines that fit between the mouse location and the top (a) or
+ * the nearest (b) edge of the text frame.
  *
  * The viewport offset is updated each time a new mouse event arrives
  * or at least every Dragscrollsleepmsec, with an increment equal to
@@ -36,6 +40,13 @@ enum
 {
 	Dragscrollpacemsec	= 250,
 	Dragscrollsleepmsec	= 30
+};
+
+struct Textfrselect
+{
+	Text		*text;
+	uint		startq;
+	Dragscroll	scroll;
 };
 
 static void
@@ -225,6 +236,50 @@ textscrclick(Text *t, int but)
 	}
 	while(mouse->buttons != 0)
 		recv(mousectl->c, &mousectl->m);
+}
+
+static void
+textframescroll(Frame *f, void *state, int velocity, int firstinstreak)
+{
+	Textfrselect *s;
+	Text *t;
+	int delta;
+	uint dragq;
+
+	s = state;
+	t = s->text;	/* f==t->fr */
+	if(velocity == 0){
+		dragscrollpollmouse(&s->scroll, mousectl, Dragscrollsleepmsec);
+		return;
+	}
+	if(firstinstreak)
+		dragscrollreset(&s->scroll, mouse, 0);
+	if(velocity>0 && t->what==Tag && !t->w->tagexpand){
+		textsetselect(t, t->org+f->p0, t->org+f->p1);
+		t->w->tagexpand = TRUE;
+		t->w->tagsafe = FALSE;
+		winresize(t->w, t->w->r, TRUE, TRUE);
+		return;
+	}
+	dragq = t->org + (velocity<0 ? f->p0 : f->p1);
+	delta = dragscrolldelta(&s->scroll, velocity, Dragscrollpacemsec);
+	if(delta != 0)
+		textscrollnl(t, delta, FALSE);
+	if(dragq < s->startq)
+		textsetselect(t, dragq, s->startq);
+	else
+		textsetselect(t, s->startq, dragq);
+}
+
+void
+textframeselect(Text *t, uint startq)
+{
+	Textfrselect s;
+
+	memset(&s, 0, sizeof(s));
+	s.text = t;
+	s.startq = startq;
+	frselectscroll(&t->fr, mousectl, textframescroll, &s);
 }
 
 /*
