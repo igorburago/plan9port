@@ -54,81 +54,83 @@ dragscrollpollmouse(Dragscroll *s, Mousectl *mc, int maxwaitms)
 }
 
 static Rectangle
-scrpos(Rectangle r, uint p0, uint p1, uint tot)
+wscrpuckrect(Window *w)
 {
-	Rectangle q;
-	int h;
+	uint tot, p0, p1;
+	Rectangle r, q;
+	int m;
+
+	r = w->scrollr;
+	r.max.x -= wscale(w, Scrollborder);
+	if(Dy(r) <= 0)
+		return r;
+
+	tot = w->nr;
+	if(tot == 0)
+		return r;
+	p0 = w->org;
+	p1 = w->org + w->f.nchars;
+	if(tot > 1024*1024){
+		tot >>= 10;
+		p0 >>= 10;
+		p1 >>= 10;
+	}
 
 	q = r;
-	h = q.max.y-q.min.y;
-	if(tot == 0)
-		return q;
-	if(tot > 1024*1024){
-		tot>>=10;
-		p0>>=10;
-		p1>>=10;
-	}
 	if(p0 > 0)
-		q.min.y += h*p0/tot;
+		q.min.y += Dy(r)*p0/tot;
 	if(p1 < tot)
-		q.max.y -= h*(tot-p1)/tot;
-	if(q.max.y < q.min.y+2){
-		if(q.min.y+2 <= r.max.y)
-			q.max.y = q.min.y+2;
-		else
-			q.min.y = q.max.y-2;
+		q.max.y -= Dy(r)*(tot-p1)/tot;
+
+	m = wscale(w, Scrollpuckmin);
+	if(q.min.y+m > q.max.y){
+		if(q.min.y+m <= r.max.y)
+			q.max.y = q.min.y+m;
+		else{
+			q.max.y = r.max.y;
+			q.min.y = q.max.y-m;
+			if(q.min.y < r.min.y)
+				q.min.y = r.min.y;
+		}
 	}
 	return q;
 }
 
-static Image *scrtmp;
-
 static void
-scrtemps(void)
+swapint(int *a, int *b)
 {
-	int h;
+	int t;
 
-	if(scrtmp)
-		return;
-	h = BIG*Dy(screen->r);
-	scrtmp = allocimage(display, Rect(0, 0, 32, h), screen->chan, 0, DWhite);
-	if(scrtmp == nil)
-		error("scrtemps");
-}
-
-void
-freescrtemps(void)
-{
-	freeimage(scrtmp);
-	scrtmp = nil;
+	t = *a;
+	*a = *b;
+	*b = t;
 }
 
 void
 wscrdraw(Window *w)
 {
-	Rectangle r, r1, r2;
-	Image *b;
+	Rectangle old, new;
 
-	scrtemps();
 	if(w->i == nil)
-		error("scrdraw");
-	r = w->scrollr;
-	b = scrtmp;
-	r1 = r;
-	r1.min.x = 0;
-	r1.max.x = Dx(r);
-	r2 = scrpos(r1, w->org, w->org+w->f.nchars, w->nr);
-	if(!eqrect(r2, w->lastsr)){
-		w->lastsr = r2;
-		/* move r1, r2 to (0,0) to avoid clipping */
-		r2 = rectsubpt(r2, r1.min);
-		r1 = rectsubpt(r1, r1.min);
-		draw(b, r1, w->f.cols[BORD], nil, ZP);
-		draw(b, r2, w->f.cols[BACK], nil, ZP);
-		r2.min.x = r2.max.x-1;
-		draw(b, r2, w->f.cols[BORD], nil, ZP);
-		draw(w->i, r, b, nil, Pt(0, r1.min.y));
-	}
+		error("wscrdraw w->i == nil");
+	old = rectaddpt(w->scrpuckr0, w->scrollr.min);
+	new = wscrpuckrect(w);
+	if(new.min.y==old.min.y && new.max.y==old.max.y)
+		return;
+	w->scrpuckr0 = rectsubpt(new, w->scrollr.min);
+
+	/* Paint only the difference between the pucks to minimize flicker. */
+	if(Dy(old) <= 0)	/* first draw after a resize */
+		old = w->scrollr;
+	else if(old.min.y<=new.min.y && new.min.y<old.max.y)
+		swapint(&new.min.y, &old.max.y);
+	else if(new.min.y<=old.min.y && old.min.y<new.max.y)
+		swapint(&old.min.y, &new.max.y);
+	/* If an interval is inverted, so is its puck/background status. */
+	if(Dy(old) != 0)
+		draw(w->i, canonrect(old), w->f.cols[Dy(old)>0 ? BORD : BACK], nil, ZP);
+	if(Dy(new) != 0)
+		draw(w->i, canonrect(new), w->f.cols[Dy(new)>0 ? BACK : BORD], nil, ZP);
 }
 
 static uint

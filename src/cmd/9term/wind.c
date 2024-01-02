@@ -35,10 +35,10 @@ static	Image	*holdcol;
 static	Image	*lightholdcol;
 static	Image	*paleholdcol;
 
-static int
+int
 wscale(Window *w, int n)
 {
-	if(w == nil || w->i == nil)
+	if(w==nil || w->i==nil)
 		return n;
 	return scalesize(w->i->display, n);
 }
@@ -80,7 +80,7 @@ wmk(Image *i, Channel *cm, Channel *ck, Channel *cctl, int scrolling, char *dir)
 	w->wctlread = chancreate(sizeof(Consreadmesg), 0);
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+wscale(w, Scrollwid);
-	w->lastsr = ZR;
+	w->scrpuckr0 = ZR;
 	r.min.x += wscale(w, Scrollwid)+wscale(w, Scrollgap);
 	frinit(&w->f, r, font, i, cols);
 	w->f.maxtab = maxtab*stringwidth(font, "0");
@@ -137,7 +137,7 @@ wresize(Window *w, Image *i, int move)
 	r = insetrect(newr, wscale(w, Selborder)+wscale(w, 1));
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+wscale(w, Scrollwid);
-	w->lastsr = ZR;
+	w->scrpuckr0 = ZR;
 	r.min.x += wscale(w, Scrollwid)+wscale(w, Scrollgap);
 	if(move)
 		frsetrects(&w->f, r, w->i);
@@ -176,7 +176,7 @@ wrefresh(Window *w, Rectangle r)
 	if(w->f.p1 < w->f.nchars)
 		frdrawsel(&w->f, frptofchar(&w->f, w->f.p1), w->f.p1, w->f.nchars, 0);
 	frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, w->f.p1, 1);
-	w->lastsr = ZR;
+	w->scrpuckr0 = ZR;
 	wscrdraw(w);
 }
 

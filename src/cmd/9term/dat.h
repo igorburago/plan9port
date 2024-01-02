@@ -18,11 +18,12 @@ typedef struct Window		Window;
 
 enum
 {
-	Selborder		= 0,		/* border of selected window */
-	Unselborder	= 0,		/* border of unselected window */
-	Scrollwid 		= 12,		/* width of scroll bar */
-	Scrollgap 		= 4,		/* gap right of scroll bar */
-	BIG			= 3,		/* factor by which window dimension can exceed screen */
+	Selborder	= 0,	/* border of selected window */
+	Unselborder	= 0,	/* border of unselected window */
+	Scrollwid	= 12,	/* width of scroll bar */
+	Scrollgap	= 4,	/* gap right of scroll bar */
+	Scrollborder	= 1,	/* border on the right side of scroll bar */
+	Scrollpuckmin	= 2,	/* minimum height of scroll position box */
 	TRUE		= 1,
 	FALSE		= 0
 };
@@ -116,13 +117,13 @@ struct Window
 	char			name[32];
 	uint			namecount;
 	Rectangle		scrollr;
+	Rectangle		scrpuckr0;
 	/*
 	 * Rio once used originwindow, so screenr could be different from i->r.
 	 * Now they're always the same but the code doesn't assume so.
 	 */
 	Rectangle		screenr;	/* screen coordinates of window */
 	int			wctlready;
-	Rectangle		lastsr;
 	int			topped;
 	int			notefd;
 	uchar		scrolling;
@@ -169,6 +170,7 @@ Window*	wpointto(Point);
 void	wrefresh(Window*, Rectangle);
 void	wrepaint(Window*);
 void	wresize(Window*, Image*, int);
+int	wscale(Window*, int);
 void	wscrclick(Window*, int);
 void	wscrdraw(Window*);
 void	wscrollnl(Window*, int, int);

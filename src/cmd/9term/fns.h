@@ -12,7 +12,6 @@ char*	estrdup(char*);
 void	button2menu(Window*);
 void	cvttorunes(char*, int, Rune*, int*, int*, int*);
 void	error(char*);
-void	freescrtemps(void);
 void	iconinit(void);
 int	intrc(void);
 int	isalnum(Rune);
