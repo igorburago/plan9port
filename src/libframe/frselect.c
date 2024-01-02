@@ -4,6 +4,125 @@
 #include <mouse.h>
 #include <frame.h>
 
+typedef struct Frscrollzones	Frscrollzones;
+
+struct Frscrollzones
+{
+	/* Set once at the start of selection: */
+	int	startline;	/* display line where selection started */
+
+	/* Updated once per Frame.r.{min,max}.y change: */
+	int	frminy;		/* current Frame.r.min.y */
+	int	frmaxy;		/* current Frame.r.max.y */
+	int	topedge;	/* y<=topedge is the top scroll zone */
+	int	botedge;	/* y>=botedge is the bottom scroll zone */
+	ushort	topeasems;	/* velocity ease-in time for the top zone */
+	ushort	boteasems;	/* same for the bottom zone */
+
+	/* Updated on every mouse event: */
+	ushort	wentup;		/* mouse has moved at least one line up during selection */
+	ushort	wentdown;	/* same for down */
+	ushort	intop;		/* mouse was inside the top zone last time */
+	ushort	inbot;		/* same for the bottom zone */
+	uint	hittopms;	/* Mouse.msec of the last time mouse entered the top zone */
+	uint	hitbotms;	/* same for the bottom zone */
+};
+
+static int
+max(int a, int b)
+{
+	return a>b ? a : b;
+}
+
+static int
+easein(int v, uint elapsed, uint period)
+{
+	return elapsed<period ? v*elapsed/period : v;
+}
+
+static void
+frscrollinit(Frame *f, Frscrollzones *z, int y)
+{
+	memset(z, 0, sizeof(*z));
+	z->startline = (y - f->r.min.y) / f->font->height;
+}
+
+/*
+ * We ensure that mouse has a scroll-triggering zone of at least
+ * Minzonelines' worth of travel on both top and bottom sides of the
+ * frame. When it is too close to a screen edge, we make up for it
+ * by reserving the lacking space inside the frame so that scrolling
+ * on that side starts a few lines before mouse is about to leave
+ * the frame, guaranteeing the user has a minimum of Minzonelines
+ * gradations of scroll speed control.
+ *
+ * When a selection begins inside the in-frame part of a scroll zone,
+ * we do not kick off scrolling until the mouse goes over at least one
+ * line in the corresponding direction. During selection, every time
+ * the mouse hits a scroll zone that intrudes into the frame (even if
+ * the cursor is in the out-of-frame part of it at that moment), we
+ * ease into the usual drag-dictated speed to help the user adjust.
+ *
+ * We cannot preset the scroll zones at the start of frselectscroll()
+ * because frame dimensions are allowed to change in the application-
+ * provided scroll function (e.g., in acme(1), a collapsed multiline
+ * tag expands when the selection is dragged below the top line).
+ */
+static int
+frscrollvel(Frame *f, Frscrollzones *z, int y, uint msec)
+{
+	enum{
+		Minzonelines		= 4,	/* both in-frame and out-of-frame ones */
+		Easemsecperline		= 200	/* per in-frame zone line */
+	};
+	int lh, above, below, top, bot, cap, sum, sweep;
+	int wasintop, wasinbot;
+
+	lh = f->font->height;
+	if(z->frminy!=f->r.min.y || z->frmaxy!=f->r.max.y){
+		z->frminy = f->r.min.y;
+		z->frmaxy = f->r.max.y;
+
+		above = (z->frminy - f->b->r.min.y) / lh;
+		below = (f->b->r.max.y - z->frmaxy) / lh;
+		top = max(Minzonelines-above, 0);
+		bot = max(Minzonelines-below, 0);
+		/* Ensure scroll zones do not cover most of the lines in the frame. */
+		sum = top + bot;
+		cap = f->maxlines/2;
+		if(sum > cap){
+			bot = (bot*cap + sum/2) / sum;
+			top = cap - bot;
+		}
+
+		z->topedge = z->frminy-1 + top*lh;
+		z->botedge = z->frmaxy - bot*lh;
+		z->topeasems = top * Easemsecperline;
+		z->boteasems = bot * Easemsecperline;
+	}
+
+	wasintop = z->intop;
+	wasinbot = z->inbot;
+	z->wentup = (z->wentup || y<z->frminy+lh*z->startline);
+	z->wentdown = (z->wentdown || y>=z->frminy+lh*(z->startline+1));
+	z->intop = (z->wentup && y<=z->topedge);
+	z->inbot = (z->wentdown && y>=z->botedge);
+	if(!wasintop && z->intop)
+		z->hittopms = msec;
+	if(!wasinbot && z->inbot)
+		z->hitbotms = msec;
+
+	if(z->intop){
+		sweep = (z->topedge - y) / lh;
+		return -1 - easein(sweep, msec-z->hittopms, z->topeasems);
+	}
+	if(z->inbot){
+		sweep = (y - z->botedge) / lh;
+		return +1 + easein(sweep, msec-z->hitbotms, z->boteasems);
+	}
+	return 0;
+}
+
 static int
 region(ulong p0, ulong p1)
 {
@@ -36,12 +155,17 @@ region(ulong p0, ulong p1)
 void
 frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 {
-	ulong p0, p1, q;
-	Point mp, pt0, pt1, qt;
 	int b, reg, scrollvel, prevvel, untick00sel;
+	Point mp, pt0, pt1, qt;
+	ulong p0, p1, q;
+	Frscrollzones z;
+	uint msec;
 
 	b = mc->m.buttons;	/* when called, button 1 is down */
 	mp = mc->m.xy;
+	msec = mc->m.msec;
+	if(scroll != nil)
+		frscrollinit(f, &z, mp.y);
 
 	frdrawsel(f, frptofchar(f, f->p0), f->p0, f->p1, 0);
 	p0 = p1 = frcharofpt(f, mp);
@@ -59,18 +183,16 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 	do{
 		if(scroll != nil){
 			prevvel = scrollvel;
-			if(mp.y < f->r.min.y){
-				scrollvel = -1 - (f->r.min.y-mp.y)/(int)f->font->height;
+			scrollvel = frscrollvel(f, &z, mp.y, msec);
+			if(scrollvel < 0){
 				(*scroll)(f, state, scrollvel, prevvel>=0, &untick00sel);
 				p0 = f->p1;
 				p1 = f->p0;
-			}else if(mp.y > f->r.max.y){
-				scrollvel = +1 + (mp.y-f->r.max.y)/(int)f->font->height;
+			}else if(scrollvel > 0){
 				(*scroll)(f, state, scrollvel, prevvel<=0, &untick00sel);
 				p0 = f->p0;
 				p1 = f->p1;
-			}else
-				scrollvel = 0;
+			}
 			if(scrollvel != 0){
 				if(reg != region(p1, p0))
 					q = p0, p0 = p1, p1 = q;	/* undo the swap that will happen below */
@@ -127,6 +249,7 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			readmouse(mc);
 		}
 		mp = mc->m.xy;
+		msec = mc->m.msec;
 	}while(mc->m.buttons == b);
 	f->selecting = 0;
 }
