@@ -56,69 +56,83 @@ dragscrollpollmouse(Dragscroll *s, Mousectl *mc, int maxwaitms)
 }
 
 static Rectangle
-scrpos(Rectangle r, uint p0, uint p1, uint tot)
+textscrpuckrect(Text *t)
 {
-	Rectangle q;
-	int h;
+	uint tot, p0, p1;
+	Rectangle r, q;
+	int m;
+
+	r = t->scrollr;
+	r.max.x -= Scrollborder;
+	if(Dy(r) <= 0)
+		return r;
+
+	tot = t->file->b.nc;
+	if(tot == 0)
+		return r;
+	p0 = t->org;
+	p1 = t->org + t->fr.nchars;
+	if(tot > 1024*1024){
+		tot >>= 10;
+		p0 >>= 10;
+		p1 >>= 10;
+	}
 
 	q = r;
-	h = q.max.y-q.min.y;
-	if(tot == 0)
-		return q;
-	if(tot > 1024*1024){
-		tot>>=10;
-		p0>>=10;
-		p1>>=10;
-	}
 	if(p0 > 0)
-		q.min.y += h*p0/tot;
+		q.min.y += Dy(r)*p0/tot;
 	if(p1 < tot)
-		q.max.y -= h*(tot-p1)/tot;
-	if(q.max.y < q.min.y+2){
-		if(q.min.y+2 <= r.max.y)
-			q.max.y = q.min.y+2;
-		else
-			q.min.y = q.max.y-2;
+		q.max.y -= Dy(r)*(tot-p1)/tot;
+
+	m = Scrollpuckmin;
+	if(q.min.y+m > q.max.y){
+		if(q.min.y+m <= r.max.y)
+			q.max.y = q.min.y+m;
+		else{
+			q.max.y = r.max.y;
+			q.min.y = q.max.y-m;
+			if(q.min.y < r.min.y)
+				q.min.y = r.min.y;
+		}
 	}
 	return q;
 }
 
-static Image *scrtmp;
-
-void
-scrlresize(void)
+static void
+swapint(int *a, int *b)
 {
-	freeimage(scrtmp);
-	scrtmp = allocimage(display, Rect(0, 0, 32, screen->r.max.y), screen->chan, 0, DNofill);
-	if(scrtmp == nil)
-		error("scroll alloc");
+	int t;
+
+	t = *a;
+	*a = *b;
+	*b = t;
 }
 
 void
 textscrdraw(Text *t)
 {
-	Rectangle r, r1, r2;
-	Image *b;
+	Rectangle old, new;
 
 	if(t->w==nil || t!=&t->w->body)
 		return;
-	if(scrtmp == nil)
-		scrlresize();
-	r = t->scrollr;
-	b = scrtmp;
-	r1 = r;
-	r1.min.x = 0;
-	r1.max.x = Dx(r);
-	r2 = scrpos(r1, t->org, t->org+t->fr.nchars, t->file->b.nc);
-	if(!eqrect(r2, t->lastsr)){
-		t->lastsr = r2;
-		draw(b, r1, t->fr.cols[BORD], nil, ZP);
-		draw(b, r2, t->fr.cols[BACK], nil, ZP);
-		r2.min.x = r2.max.x-1;
-		draw(b, r2, t->fr.cols[BORD], nil, ZP);
-		draw(t->fr.b, r, b, nil, Pt(0, r1.min.y));
-/*flushimage(display, 1); // BUG? */
-	}
+	old = rectaddpt(t->scrpuckr0, t->scrollr.min);
+	new = textscrpuckrect(t);
+	if(new.min.y==old.min.y && new.max.y==old.max.y)
+		return;
+	t->scrpuckr0 = rectsubpt(new, t->scrollr.min);
+
+	/* Paint only the difference between the pucks to minimize flicker. */
+	if(Dy(old) <= 0)	/* first draw after a resize */
+		old = t->scrollr;
+	else if(old.min.y<=new.min.y && new.min.y<old.max.y)
+		swapint(&new.min.y, &old.max.y);
+	else if(new.min.y<=old.min.y && old.min.y<new.max.y)
+		swapint(&old.min.y, &new.max.y);
+	/* If an interval is inverted, so is its puck/background status. */
+	if(Dy(old) != 0)
+		draw(screen, canonrect(old), t->fr.cols[Dy(old)>0 ? BORD : BACK], nil, ZP);
+	if(Dy(new) != 0)
+		draw(screen, canonrect(new), t->fr.cols[Dy(new)>0 ? BACK : BORD], nil, ZP);
 }
 
 static uint

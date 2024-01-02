@@ -28,7 +28,7 @@ textinit(Text *t, File *f, Rectangle r, Reffont *rf, Image *cols[NCOL])
 	t->all = r;
 	t->scrollr = r;
 	t->scrollr.max.x = r.min.x+Scrollwid;
-	t->lastsr = nullrect;
+	t->scrpuckr0 = ZR;
 	r.min.x += Scrollwid+Scrollgap;
 	t->eq0 = ~0;
 	t->ncache = 0;
@@ -83,7 +83,7 @@ textresize(Text *t, Rectangle r, int keepextra)
 	t->all = r;
 	t->scrollr = r;
 	t->scrollr.max.x = r.min.x+Scrollwid;
-	t->lastsr = nullrect;
+	t->scrpuckr0 = ZR;
 	r.min.x += Scrollwid+Scrollgap;
 	frclear(&t->fr, 0);
 	textredraw(t, r, t->fr.font, t->fr.b, odx);

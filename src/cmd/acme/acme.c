@@ -577,7 +577,6 @@ mousethread(void *arg)
 				error("attach to window");
 			draw(screen, screen->r, display->white, nil, ZP);
 			iconinit();
-			scrlresize();
 			rowresize(&row, screen->clipr);
 			break;
 		case MPlumb:

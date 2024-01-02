@@ -83,7 +83,6 @@ int	rxexecute(Text*, Rune*, uint, uint, Rangeset*);
 void	rxinit(void);
 int	rxnull(void);
 void	savemouse(Window*);
-void	scrlresize(void);
 int	search(Text*, Rune*, uint);
 uint	seqof(Window*, int);
 void	setcurtext(Text*, int);
