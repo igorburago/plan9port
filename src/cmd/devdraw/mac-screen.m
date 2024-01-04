@@ -495,11 +495,9 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 		MTLTextureDescriptor *textureDesc;
 
 		size = [self convertSizeToBacking:self.bounds.size];
-		self.client->mouserect = Rect(0, 0, size.width, size.height);
-
 		LOG(@"initimg %.0f %.0f", size.width, size.height);
 
-		self.img = allocmemimage(self.client->mouserect, XRGB32);
+		self.img = allocmemimage(Rect(0, 0, size.width, size.height), XRGB32);
 		if(self.img == nil)
 			panic("allocmemimage: %r");
 		if(self.img->data == nil)
@@ -845,7 +843,7 @@ mousebuttons(void)
 
 	p = self.window.mouseLocationOutsideOfEventStream;
 	p = [self.window convertPointToBacking:p];
-	p.y = self.client->mouserect.max.y - p.y;
+	p.y = self.img->r.max.y - p.y;
 	//LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
 
 	gfx_mousetrack(self.client, (int)p.x, (int)p.y, b, scroll, msec());

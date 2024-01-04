@@ -107,7 +107,6 @@ struct Client
 	Mousebuf mouse;
 	Tagbuf kbdtags;
 	Tagbuf mousetags;
-	Rectangle mouserect;
 };
 
 struct Refresh

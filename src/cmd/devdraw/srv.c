@@ -411,22 +411,11 @@ matchmouse(Client *c)
 static void
 putmouse(Client *c, int x, int y, int b, int scroll, uint ms)
 {
-	Rectangle mr;
 	Mousebuf *mbuf;
 	Mouse *m;
 
 	if(canqlock(&c->eventlk))
 		sysfatal("putmouse: event lock must be held");
-
-	mr = c->mouserect;
-	if(x < mr.min.x)
-		x = mr.min.x;
-	if(x >= mr.max.x)
-		x = mr.max.x-1;
-	if(y < mr.min.y)
-		y = mr.min.y;
-	if(y >= mr.max.y)
-		y = mr.max.y-1;
 
 	/*
 	 * If reader has stopped reading, don't bother.

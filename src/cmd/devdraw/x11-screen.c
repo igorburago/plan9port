@@ -735,7 +735,6 @@ xattach(Client *client, char *label, char *winsize)
 	w->screenpm = XCreatePixmap(_x.display, w->drawable, Dx(r), Dy(r), _x.depth);
 	w->nextscreenpm = w->screenpm;
 	w->screenimage = _xallocmemimage(r, _x.chan, w->screenpm);
-	client->mouserect = r;
 
 	/*
 	 * Allocate some useful graphics contexts for the future.
@@ -1087,7 +1086,6 @@ _xreplacescreenimage(Client *client)
 		XFreePixmap(_x.display, w->nextscreenpm);
 	w->nextscreenpm = pixmap;
 	w->screenr = r;
-	client->mouserect = r;
 	xunlock();
 	gfx_replacescreenimage(client, m);
 	xlock();
