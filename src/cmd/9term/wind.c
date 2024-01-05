@@ -1010,8 +1010,9 @@ static uint	selectq;
  * called from frame library
  */
 void
-framescroll(Frame *f, int dl)
+framescroll(Frame *f, void *state, int dl)
 {
+	USED(state);
 	if(f != &selectwin->f)
 		error("frameselect not right frame");
 	wframescroll(selectwin, dl);
@@ -1067,12 +1068,10 @@ wselect(Window *w)
 		selectq = q0;
 	}
 	if(w->mc.m.buttons == b){
-		w->f.scroll = framescroll;
-		frselect(&w->f, &w->mc);
+		frselectscroll(&w->f, &w->mc, framescroll, nil);
 		/* horrible botch: while asleep, may have lost selection altogether */
 		if(selectq > w->nr)
 			selectq = w->org + w->f.p0;
-		w->f.scroll = nil;
 		if(selectq < w->org)
 			q0 = selectq;
 		else

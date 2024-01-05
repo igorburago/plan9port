@@ -4,28 +4,22 @@
 #include <mouse.h>
 #include <frame.h>
 
-static
-int
-region(int a, int b)
+static int
+region(ulong p0, ulong p1)
 {
-	if(a < b)
-		return -1;
-	if(a == b)
-		return 0;
-	return 1;
+	return (p0 > p1) - (p0 < p1);
 }
 
 void
-frselect(Frame *f, Mousectl *mc)	/* when called, button 1 is down */
+frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 {
 	ulong p0, p1, q;
 	Point mp, pt0, pt1, qt;
 	int reg, b, scrled;
 
+	b = mc->m.buttons;	/* when called, button 1 is down */
 	mp = mc->m.xy;
-	b = mc->m.buttons;
 
-	f->modified = 0;
 	frdrawsel(f, frptofchar(f, f->p0), f->p0, f->p1, 0);
 	p0 = p1 = frcharofpt(f, mp);
 	f->p0 = p0;
@@ -33,17 +27,20 @@ frselect(Frame *f, Mousectl *mc)	/* when called, button 1 is down */
 	pt0 = frptofchar(f, p0);
 	pt1 = frptofchar(f, p1);
 	frdrawsel(f, pt0, p0, p1, 1);
+
+	f->selecting = 1;
+	f->modified = 0;
 	reg = 0;
 	do{
 		scrled = 0;
-		if(f->scroll){
+		if(scroll != nil){
 			if(mp.y < f->r.min.y){
-				(*f->scroll)(f, -(f->r.min.y-mp.y)/(int)f->font->height-1);
+				(*scroll)(f, state, -(f->r.min.y-mp.y)/(int)f->font->height-1);
 				p0 = f->p1;
 				p1 = f->p0;
 				scrled = 1;
 			}else if(mp.y > f->r.max.y){
-				(*f->scroll)(f, (mp.y-f->r.max.y)/(int)f->font->height+1);
+				(*scroll)(f, state, (mp.y-f->r.max.y)/(int)f->font->height+1);
 				p0 = f->p0;
 				p1 = f->p1;
 				scrled = 1;
@@ -78,28 +75,35 @@ frselect(Frame *f, Mousectl *mc)	/* when called, button 1 is down */
 			}else if(reg < 0){
 				if(q > p1)
 					frdrawsel(f, pt1, p1, q, 0);
-				else
+				else if(q < p1)
 					frdrawsel(f, qt, q, p1, 1);
 			}
 			p1 = q;
 			pt1 = qt;
 		}
+		f->selecting = 1;
 		f->modified = 0;
-		if(p0 < p1) {
+		if(p0 < p1){
 			f->p0 = p0;
 			f->p1 = p1;
-		}
-		else {
+		}else{
 			f->p0 = p1;
 			f->p1 = p0;
 		}
 		if(scrled)
-			(*f->scroll)(f, 0);
+			(*scroll)(f, state, 0);
 		flushimage(f->display, 1);
 		if(!scrled)
 			readmouse(mc);
 		mp = mc->m.xy;
 	}while(mc->m.buttons == b);
+	f->selecting = 0;
+}
+
+void
+frselect(Frame *f, Mousectl *mc)
+{
+	frselectscroll(f, mc, nil, nil);
 }
 
 void
@@ -124,9 +128,7 @@ frselectpaint(Frame *f, Point p0, Point p1, Image *col)
 			p0.x = f->r.max.x-1;
 		draw(f->b, Rect(p0.x, p0.y, f->r.max.x, q0.y), col, nil, ZP);
 		if(n > 1)
-			draw(f->b, Rect(f->r.min.x, q0.y, f->r.max.x, p1.y),
-				col, nil, ZP);
-		draw(f->b, Rect(f->r.min.x, p1.y, q1.x, q1.y),
-			col, nil, ZP);
+			draw(f->b, Rect(f->r.min.x, q0.y, f->r.max.x, p1.y), col, nil, ZP);
+		draw(f->b, Rect(f->r.min.x, p1.y, q1.x, q1.y), col, nil, ZP);
 	}
 }

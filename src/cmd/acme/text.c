@@ -938,8 +938,9 @@ static	uint	selectq;
  * called from frame library
  */
 void
-framescroll(Frame *f, int dl)
+framescroll(Frame *f, void *state, int dl)
 {
+	USED(state);
 	if(f != &selecttext->fr)
 		error("frameselect not right frame");
 	textframescroll(selecttext, dl);
@@ -1004,12 +1005,10 @@ textselect(Text *t)
 		selectq = q0;
 	}
 	if(mouse->buttons == b){
-		t->fr.scroll = framescroll;
-		frselect(&t->fr, mousectl);
+		frselectscroll(&t->fr, mousectl, framescroll, nil);
 		/* horrible botch: while asleep, may have lost selection altogether */
 		if(selectq > t->file->b.nc)
 			selectq = t->org + t->fr.p0;
-		t->fr.scroll = nil;
 		if(selectq < t->org)
 			q0 = selectq;
 		else

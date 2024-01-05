@@ -208,7 +208,7 @@ winresize(Window *w, Rectangle r, int safe, int keepextra)
 		 * mouse drag during text selection, do not interfere with it
 		 * (see text.c:/^textselect\(/ and text.c:/^textframescroll/).
 		 */
-		if(w->tag.fr.scroll == nil){
+		if(!w->tag.fr.selecting){
 			/* If mouse is in the tag, pull it up as the tag collapses. */
 			if(mouseintag && !ptinrect(mouse->xy, w->tag.all)){
 				p = mouse->xy;

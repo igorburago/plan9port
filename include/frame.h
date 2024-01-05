@@ -6,10 +6,13 @@ extern "C" {
 
 AUTOLIB(frame)
 
-typedef struct Frbox Frbox;
-typedef struct Frame Frame;
+typedef struct Frbox	Frbox;
+typedef struct Frame	Frame;
 
-enum{
+typedef void Frscrollfn(Frame*, void*, int);
+
+enum
+{
 	BACK,
 	HIGH,
 	BORD,
@@ -21,8 +24,8 @@ enum{
 #define	FRTICKW	3
 struct Frbox
 {
-	long		wid;		/* in pixels */
-	long		nrune;		/* <0 ==> negate and treat as break char */
+	long	wid;	/* in pixels */
+	long	nrune;	/* <0 ==> negate and treat as break char */
 	uchar	*ptr;
 	short	bc;	/* break char */
 	short	minwid;
@@ -36,7 +39,6 @@ struct Frame
 	Image		*cols[NCOL];	/* text and background colors */
 	Rectangle	r;		/* in which text appears */
 	Rectangle	entire;		/* of full frame */
-	void			(*scroll)(Frame*, int);	/* scroll function provided by application */
 	Frbox		*box;
 	ulong		p0, p1;		/* selection */
 	ushort		nbox, nalloc;
@@ -45,12 +47,13 @@ struct Frame
 	ushort		nlines;		/* # lines with text */
 	ushort		maxlines;	/* total # lines in frame */
 	ushort		lastlinefull;	/* last line fills frame */
+	ushort		selecting;	/* frselect() is in progress */
 	ushort		modified;	/* changed since frselect() */
-	Image		*tick;	/* typing tick */
+	ushort		noredraw;	/* don't draw on the screen */
+	ushort		ticked;		/* flag: is tick onscreen? */
+	int		tickscale;	/* tick scaling factor */
+	Image		*tick;		/* typing tick */
 	Image		*tickback;	/* saved image under tick */
-	int			ticked;	/* flag: is tick onscreen? */
-	int			noredraw;	/* don't draw on the screen */
-	int			tickscale;	/* tick scaling factor */
 };
 
 ulong	frcharofpt(Frame*, Point);
@@ -58,6 +61,7 @@ Point	frptofchar(Frame*, ulong);
 int	frdelete(Frame*, ulong, ulong);
 void	frinsert(Frame*, Rune*, Rune*, ulong);
 void	frselect(Frame*, Mousectl*);
+void	frselectscroll(Frame*, Mousectl*, Frscrollfn*, void*);
 void	frselectpaint(Frame*, Point, Point, Image*);
 void	frdrawsel(Frame*, Point, ulong, ulong, int);
 Point	frdrawsel0(Frame*, Point, ulong, ulong, Image*, Image*);
@@ -66,7 +70,7 @@ void	frsetrects(Frame*, Rectangle, Image*);
 void	frclear(Frame*, int);
 void	frredraw(Frame*);
 
-uchar	*_frallocstr(Frame*, unsigned);
+uchar*	_frallocstr(Frame*, unsigned);
 void	_frinsure(Frame*, int, unsigned);
 Point	_frdraw(Frame*, Point);
 void	_frgrowbox(Frame*, int);
@@ -93,6 +97,7 @@ void	frinittick(Frame*);
 
 #define	NRUNE(b)	((b)->nrune<0? 1 : (b)->nrune)
 #define	NBYTE(b)	strlen((char*)(b)->ptr)
+
 #if defined(__cplusplus)
 }
 #endif
