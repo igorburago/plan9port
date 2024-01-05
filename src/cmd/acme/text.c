@@ -938,9 +938,10 @@ static	uint	selectq;
  * called from frame library
  */
 void
-framescroll(Frame *f, void *state, int dl)
+framescroll(Frame *f, void *state, int dl, int firstinstreak)
 {
 	USED(state);
+	USED(firstinstreak);
 	if(f != &selecttext->fr)
 		error("frameselect not right frame");
 	textframescroll(selecttext, dl);

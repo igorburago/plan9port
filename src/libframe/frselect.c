@@ -15,7 +15,7 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 {
 	ulong p0, p1, q;
 	Point mp, pt0, pt1, qt;
-	int reg, b, scrled;
+	int b, reg, scrollvel, prevvel;
 
 	b = mc->m.buttons;	/* when called, button 1 is down */
 	mp = mc->m.xy;
@@ -30,22 +30,24 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 
 	f->selecting = 1;
 	f->modified = 0;
+	scrollvel = 0;
 	reg = 0;
 	do{
-		scrled = 0;
 		if(scroll != nil){
+			prevvel = scrollvel;
 			if(mp.y < f->r.min.y){
-				(*scroll)(f, state, -(f->r.min.y-mp.y)/(int)f->font->height-1);
+				scrollvel = -1 - (f->r.min.y-mp.y)/(int)f->font->height;
+				(*scroll)(f, state, scrollvel, prevvel>=0);
 				p0 = f->p1;
 				p1 = f->p0;
-				scrled = 1;
 			}else if(mp.y > f->r.max.y){
-				(*scroll)(f, state, (mp.y-f->r.max.y)/(int)f->font->height+1);
+				scrollvel = +1 + (mp.y-f->r.max.y)/(int)f->font->height;
+				(*scroll)(f, state, scrollvel, prevvel<=0);
 				p0 = f->p0;
 				p1 = f->p1;
-				scrled = 1;
-			}
-			if(scrled){
+			}else
+				scrollvel = 0;
+			if(scrollvel != 0){
 				if(reg != region(p1, p0))
 					q = p0, p0 = p1, p1 = q;	/* undo the swap that will happen below */
 				pt0 = frptofchar(f, p0);
@@ -90,10 +92,10 @@ frselectscroll(Frame *f, Mousectl *mc, Frscrollfn *scroll, void *state)
 			f->p0 = p1;
 			f->p1 = p0;
 		}
-		if(scrled)
-			(*scroll)(f, state, 0);
+		if(scrollvel != 0)
+			(*scroll)(f, state, 0, 0);
 		flushimage(f->display, 1);
-		if(!scrled)
+		if(scrollvel == 0)
 			readmouse(mc);
 		mp = mc->m.xy;
 	}while(mc->m.buttons == b);
