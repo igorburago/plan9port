@@ -2,6 +2,17 @@
 #include <libc.h>
 #include <draw.h>
 
+Point		ZP;
+Rectangle	ZR;
+
+u32int	drawld2chan[] =
+{
+	GREY1,
+	GREY2,
+	GREY4,
+	CMAP8,
+};
+
 Point
 Pt(int x, int y)
 {
@@ -133,12 +144,13 @@ Rectangle
 canonrect(Rectangle r)
 {
 	int t;
-	if (r.max.x < r.min.x) {
+
+	if(r.max.x < r.min.x){
 		t = r.min.x;
 		r.min.x = r.max.x;
 		r.max.x = t;
 	}
-	if (r.max.y < r.min.y) {
+	if(r.max.y < r.min.y){
 		t = r.min.y;
 		r.min.y = r.max.y;
 		r.max.y = t;
@@ -160,14 +172,6 @@ combinerect(Rectangle *r1, Rectangle r2)
 }
 
 u32int
-drawld2chan[] = {
-	GREY1,
-	GREY2,
-	GREY4,
-	CMAP8,
-};
-
-u32int
 setalpha(u32int color, uchar alpha)
 {
 	int red, green, blue;
@@ -182,17 +186,6 @@ setalpha(u32int color, uchar alpha)
 	return (red<<3*8) | (green<<2*8) | (blue<<1*8) | (alpha<<0*8);
 }
 
-Point	ZP;
-Rectangle ZR;
-int
-Rfmt(Fmt *f)
-{
-	Rectangle r;
-
-	r = va_arg(f->args, Rectangle);
-	return fmtprint(f, "%P %P", r.min, r.max);
-}
-
 int
 Pfmt(Fmt *f)
 {
@@ -200,4 +193,13 @@ Pfmt(Fmt *f)
 
 	p = va_arg(f->args, Point);
 	return fmtprint(f, "[%d %d]", p.x, p.y);
+}
+
+int
+Rfmt(Fmt *f)
+{
+	Rectangle r;
+
+	r = va_arg(f->args, Rectangle);
+	return fmtprint(f, "%P %P", r.min, r.max);
 }
