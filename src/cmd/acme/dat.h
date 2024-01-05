@@ -27,34 +27,34 @@ enum
 
 enum
 {
-	Blockincr =	256,
-	Maxblock = 	32*1024,
-	NRange =		10,
-	Infinity = 		0x7FFFFFFF	/* huge value for regexp address */
+	Blockincr	= 256,
+	Maxblock	= 32*1024,
+	NRange		= 10,
+	Infinity	= 0x7FFFFFFF	/* huge value for regexp address */
 };
 
 #define Buffer AcmeBuffer
-typedef	struct	Block Block;
-typedef	struct	Buffer Buffer;
-typedef	struct	Command Command;
-typedef	struct	Column Column;
-typedef	struct	Dirlist Dirlist;
-typedef	struct	Dirtab Dirtab;
-typedef	struct	Disk Disk;
-typedef	struct	Expand Expand;
-typedef	struct	Fid Fid;
-typedef	struct	File File;
-typedef	struct	Elog Elog;
-typedef	struct	Mntdir Mntdir;
-typedef	struct	Range Range;
-typedef	struct	Rangeset Rangeset;
-typedef	struct	Reffont Reffont;
-typedef	struct	Row Row;
-typedef	struct	Runestr Runestr;
-typedef	struct	Text Text;
-typedef	struct	Timer Timer;
-typedef	struct	Window Window;
-typedef	struct	Xfid Xfid;
+typedef struct Block	Block;
+typedef struct Buffer	Buffer;
+typedef struct Column	Column;
+typedef struct Command	Command;
+typedef struct Dirlist	Dirlist;
+typedef struct Dirtab	Dirtab;
+typedef struct Disk	Disk;
+typedef struct Elog	Elog;
+typedef struct Expand	Expand;
+typedef struct Fid	Fid;
+typedef struct File	File;
+typedef struct Mntdir	Mntdir;
+typedef struct Range	Range;
+typedef struct Rangeset	Rangeset;
+typedef struct Reffont	Reffont;
+typedef struct Row	Row;
+typedef struct Runestr	Runestr;
+typedef struct Text	Text;
+typedef struct Timer	Timer;
+typedef struct Window	Window;
+typedef struct Xfid	Xfid;
 
 struct Runestr
 {
@@ -71,8 +71,7 @@ struct Range
 struct Block
 {
 	vlong		addr;	/* disk address in bytes */
-	union
-	{
+	union{
 		uint	n;		/* number of used runes in block */
 		Block	*next;	/* pointer to next in free list */
 	} u;
@@ -87,9 +86,9 @@ struct Disk
 
 Disk*	diskinit(void);
 Block*	disknewblock(Disk*, uint);
-void		diskrelease(Disk*, Block*);
-void		diskread(Disk*, Block*, Rune*, uint);
-void		diskwrite(Disk*, Block**, Rune*, uint);
+void	diskread(Disk*, Block*, Rune*, uint);
+void	diskrelease(Disk*, Block*);
+void	diskwrite(Disk*, Block**, Rune*, uint);
 
 struct Buffer
 {
@@ -103,12 +102,13 @@ struct Buffer
 	Block	**bl;		/* array of blocks */
 	uint	nbl;			/* number of blocks */
 };
-void		bufinsert(Buffer*, uint, Rune*, uint);
-void		bufdelete(Buffer*, uint, uint);
-uint		bufload(Buffer*, uint, int, int*, DigestState*);
-void		bufread(Buffer*, uint, Rune*, uint);
-void		bufclose(Buffer*);
-void		bufreset(Buffer*);
+
+void	bufclose(Buffer*);
+void	bufdelete(Buffer*, uint, uint);
+void	bufinsert(Buffer*, uint, Rune*, uint);
+uint	bufload(Buffer*, uint, int, int*, DigestState*);
+void	bufread(Buffer*, uint, Rune*, uint);
+void	bufreset(Buffer*);
 
 struct Elog
 {
@@ -118,12 +118,13 @@ struct Elog
 	uint		nr;		/* # runes in string or file name */
 	Rune		*r;
 };
-void	elogterm(File*);
-void	elogclose(File*);
-void	eloginsert(File*, int, Rune*, int);
-void	elogdelete(File*, int, int);
-void	elogreplace(File*, int, int, Rune*, int);
+
 void	elogapply(File*);
+void	elogclose(File*);
+void	elogdelete(File*, int, int);
+void	eloginsert(File*, int, Rune*, int);
+void	elogreplace(File*, int, int, Rune*, int);
+void	elogterm(File*);
 
 struct File
 {
@@ -148,20 +149,21 @@ struct File
 	int		ntext;
 	int		dumpid;	/* used in dumping zeroxed windows */
 };
-File*		fileaddtext(File*, Text*);
-void		fileclose(File*);
-void		filedelete(File*, uint, uint);
-void		filedeltext(File*, Text*);
-void		fileinsert(File*, uint, Rune*, uint);
-uint		fileload(File*, uint, int, int*, DigestState*);
-void		filemark(File*);
-void		filereset(File*);
-void		filesetname(File*, Rune*, int);
-void		fileundelete(File*, Buffer*, uint, uint);
-void		fileuninsert(File*, Buffer*, uint, uint);
-void		fileunsetname(File*, Buffer*);
-void		fileundo(File*, int, uint*, uint*);
-uint		fileredoseq(File*);
+
+File*	fileaddtext(File*, Text*);
+void	fileclose(File*);
+void	filedelete(File*, uint, uint);
+void	filedeltext(File*, Text*);
+void	fileinsert(File*, uint, Rune*, uint);
+uint	fileload(File*, uint, int, int*, DigestState*);
+void	filemark(File*);
+uint	fileredoseq(File*);
+void	filereset(File*);
+void	filesetname(File*, Rune*, int);
+void	fileundelete(File*, Buffer*, uint, uint);
+void	fileundo(File*, int, uint*, uint*);
+void	fileuninsert(File*, Buffer*, uint, uint);
+void	fileunsetname(File*, Buffer*);
 
 enum	/* Text.what */
 {
@@ -198,38 +200,38 @@ struct Text
 	int	needundo;
 };
 
-uint		textbacknl(Text*, uint, uint);
-uint		textbsinsert(Text*, uint, Rune*, uint, int, int*);
-int		textbswidth(Text*, Rune);
-int		textclickhtmlmatch(Text*, uint*, uint*);
-int		textclickmatch(Text*, int, int, int, uint*);
-void		textclose(Text*);
-void		textcolumnate(Text*, Dirlist**, int);
-void		textcommit(Text*, int);
-void		textconstrain(Text*, uint, uint, uint*, uint*);
-void		textdelete(Text*, uint, uint, int);
-void		textdoubleclick(Text*, uint*, uint*);
-void		textfill(Text*);
-uint		textforwardnl(Text*, uint, uint);
-void		textframescroll(Text*, int);
-void		textinit(Text*, File*, Rectangle, Reffont*, Image**);
-void		textinsert(Text*, uint, Rune*, uint, int);
-int		textload(Text*, uint, char*, int);
-Rune		textreadc(Text*, uint);
-void		textredraw(Text*, Rectangle, Font*, Image*, int);
-void		textreset(Text*);
-int		textresize(Text*, Rectangle, int);
-void		textscrclick(Text*, int);
-void		textscrdraw(Text*);
-void		textscrollnl(Text*, int);
-void		textselect(Text*);
-int		textselect2(Text*, uint*, uint*, Text**);
-int		textselect23(Text*, uint*, uint*, Image*, int);
-int		textselect3(Text*, uint*, uint*);
-void		textsetorigin(Text*, uint);
-void		textsetselect(Text*, uint, uint);
-void		textshow(Text*, uint, uint, int);
-void		texttype(Text*, Rune);
+uint	textbacknl(Text*, uint, uint);
+uint	textbsinsert(Text*, uint, Rune*, uint, int, int*);
+int	textbswidth(Text*, Rune);
+int	textclickhtmlmatch(Text*, uint*, uint*);
+int	textclickmatch(Text*, int, int, int, uint*);
+void	textclose(Text*);
+void	textcolumnate(Text*, Dirlist**, int);
+void	textcommit(Text*, int);
+void	textconstrain(Text*, uint, uint, uint*, uint*);
+void	textdelete(Text*, uint, uint, int);
+void	textdoubleclick(Text*, uint*, uint*);
+void	textfill(Text*);
+uint	textforwardnl(Text*, uint, uint);
+void	textframescroll(Text*, int);
+void	textinit(Text*, File*, Rectangle, Reffont*, Image**);
+void	textinsert(Text*, uint, Rune*, uint, int);
+int	textload(Text*, uint, char*, int);
+Rune	textreadc(Text*, uint);
+void	textredraw(Text*, Rectangle, Font*, Image*, int);
+void	textreset(Text*);
+int	textresize(Text*, Rectangle, int);
+void	textscrclick(Text*, int);
+void	textscrdraw(Text*);
+void	textscrollnl(Text*, int);
+void	textselect(Text*);
+int	textselect2(Text*, uint*, uint*, Text**);
+int	textselect23(Text*, uint*, uint*, Image*, int);
+int	textselect3(Text*, uint*, uint*);
+void	textsetorigin(Text*, uint);
+void	textsetselect(Text*, uint, uint);
+void	textshow(Text*, uint, uint, int);
+void	texttype(Text*, Rune);
 
 struct Window
 {
@@ -278,27 +280,27 @@ struct Window
 	QLock	editoutlk;
 };
 
+void	winaddincl(Window*, Rune*, int);
+int	winclean(Window*, int);
+void	wincleartag(Window*);
+void	winclose(Window*);
+void	wincommit(Window*, Text*);
+char*	winctlprint(Window*, char*, int);
+void	windelete(Window*);
+void	windirfree(Window*);
+void	winevent(Window*, char*, ...);
 void	wininit(Window*, Window*, Rectangle);
 void	winlock(Window*, int);
 void	winlock1(Window*, int);
-void	winunlock(Window*);
-void	wintype(Window*, Text*, Rune);
+void	winmousebut(Window*);
+int	winresize(Window*, Rectangle, int, int);
 void	winscroll(Window*, Text*, int);
-void	winundo(Window*, int);
 void	winsetname(Window*, Rune*, int);
 void	winsettag(Window*);
 void	winsettag1(Window*);
-void	wincommit(Window*, Text*);
-int	winresize(Window*, Rectangle, int, int);
-void	winclose(Window*);
-void	windelete(Window*);
-int	winclean(Window*, int);
-void	windirfree(Window*);
-void	winevent(Window*, char*, ...);
-void	winmousebut(Window*);
-void	winaddincl(Window*, Rune*, int);
-void	wincleartag(Window*);
-char	*winctlprint(Window*, char*, int);
+void	wintype(Window*, Text*, Rune);
+void	winundo(Window*, int);
+void	winunlock(Window*);
 
 struct Column
 {
@@ -310,17 +312,17 @@ struct Column
 	int		safe;
 };
 
-void		colinit(Column*, Rectangle);
 Window*	coladd(Column*, Window*, Window*, int);
-void		colclose(Column*, Window*, int);
-void		colcloseall(Column*);
-void		colresize(Column*, Rectangle);
+int	colclean(Column*);
+void	colclose(Column*, Window*, int);
+void	colcloseall(Column*);
+void	coldragwin(Column*, Window*, int);
+void	colgrow(Column*, Window*, int);
+void	colinit(Column*, Rectangle);
+void	colmousebut(Column*);
+void	colresize(Column*, Rectangle);
+void	colsort(Column*);
 Text*	colwhich(Column*, Point);
-void		coldragwin(Column*, Window*, int);
-void		colgrow(Column*, Window*, int);
-int		colclean(Column*);
-void		colsort(Column*);
-void		colmousebut(Column*);
 
 struct Row
 {
@@ -329,21 +331,20 @@ struct Row
 	Text	tag;
 	Column	**col;
 	int		ncol;
-
 };
 
-void		rowinit(Row*, Rectangle);
 Column*	rowadd(Row*, Column *c, int);
-void		rowclose(Row*, Column*, int);
+int	rowclean(Row*);
+void	rowclose(Row*, Column*, int);
+void	rowdragcol(Row*, Column*, int);
+void	rowdump(Row*, char*);
+void	rowinit(Row*, Rectangle);
+int	rowload(Row*, char*, int);
+void	rowloadfonts(char*);
+void	rowresize(Row*, Rectangle);
+Text*	rowtype(Row*, Rune, Point);
 Text*	rowwhich(Row*, Point);
 Column*	rowwhichcol(Row*, Point);
-void		rowresize(Row*, Rectangle);
-Text*	rowtype(Row*, Rune, Point);
-void		rowdragcol(Row*, Column*, int but);
-int		rowclean(Row*);
-void		rowdump(Row*, char*);
-int		rowload(Row*, char*, int);
-void		rowloadfonts(char*);
 
 struct Timer
 {
@@ -399,7 +400,6 @@ struct Fid
 	vlong	logoff;	// for putlog
 };
 
-
 struct Xfid
 {
 	void		*arg;	/* args to xfidinit */
@@ -411,31 +411,31 @@ struct Xfid
 	int	flushed;
 };
 
-void		xfidctl(void *);
-void		xfidflush(Xfid*);
-void		xfidopen(Xfid*);
-void		xfidclose(Xfid*);
-void		xfidread(Xfid*);
-void		xfidwrite(Xfid*);
-void		xfidctlwrite(Xfid*, Window*);
-void		xfideventread(Xfid*, Window*);
-void		xfideventwrite(Xfid*, Window*);
-void		xfidindexread(Xfid*);
-void		xfidutfread(Xfid*, Text*, uint, int);
-int		xfidruneread(Xfid*, Text*, uint, uint);
-void		xfidlogopen(Xfid*);
-void		xfidlogread(Xfid*);
-void		xfidlogflush(Xfid*);
-void		xfidlog(Window*, char*);
+void	xfidclose(Xfid*);
+void	xfidctl(void *);
+void	xfidctlwrite(Xfid*, Window*);
+void	xfideventread(Xfid*, Window*);
+void	xfideventwrite(Xfid*, Window*);
+void	xfidflush(Xfid*);
+void	xfidindexread(Xfid*);
+void	xfidlog(Window*, char*);
+void	xfidlogflush(Xfid*);
+void	xfidlogopen(Xfid*);
+void	xfidlogread(Xfid*);
+void	xfidopen(Xfid*);
+void	xfidread(Xfid*);
+int	xfidruneread(Xfid*, Text*, uint, uint);
+void	xfidutfread(Xfid*, Text*, uint, int);
+void	xfidwrite(Xfid*);
 
 struct Reffont
 {
 	Ref	ref;
 	Font	*f;
-
 };
-Reffont	*rfget(int, int, int, char*);
+
 void		rfclose(Reffont*);
+Reffont*	rfget(int, int, int, char*);
 
 struct Rangeset
 {
