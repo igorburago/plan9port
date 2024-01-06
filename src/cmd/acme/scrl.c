@@ -158,12 +158,30 @@ textscrclick(Text *t, int but)
 		readmouse(mousectl);
 }
 
+/*
+ * Enforce the do-not-scroll-past-end constraint when it may be
+ * violated due to content modification or a change of origin.
+ * The text frame must be in a valid state for its current origin.
+ */
+void
+textscrollupifpastend(Text *t)
+{
+	int n;
+
+	if(t->fr.lastlinefull)
+		return;
+	n = t->fr.maxlines - t->fr.nlines;
+	if(textendswithnl(t))
+		n--;
+	if(n > 0)
+		textsetorigin(t, textbacknl(t, t->org, n));
+}
+
 void
 textscrollnl(Text *t, int lines, int scrollpastend)
 {
 	uint org;
 	Point p;
-	int n;
 
 	if(lines < 0){
 		if(t->org == 0)
@@ -179,14 +197,7 @@ textscrollnl(Text *t, int lines, int scrollpastend)
 		if(lines > t->fr.maxlines)
 			org = textforwardnl(t, org, lines-t->fr.maxlines);
 		textsetorigin(t, org);
-		if(!scrollpastend && !t->fr.lastlinefull){
-			n = t->fr.maxlines - t->fr.nlines;
-			if(textendswithnl(t))
-				n--;
-			if(n > 0){
-				org = textbacknl(t, t->org, n);
-				textsetorigin(t, org);
-			}
-		}
+		if(!scrollpastend)
+			textscrollupifpastend(t);
 	}
 }

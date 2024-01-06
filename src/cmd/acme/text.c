@@ -704,23 +704,38 @@ texttype(Text *t, Rune r)
 		return;
 	case Khome:
 		typecommit(t);
-		if(t->org > t->iq1) {
-			q0 = textbacknl(t, t->iq1, 1);
+		if(t->what==Tag && !t->w->tagexpand)
+			return;
+		if(t->org > t->iq1)
+			q0 = t->iq1;
+		else
+			q0 = 0;
+		if(t->what==Body && q0==0)
+			textshow(t, q0, q0, FALSE);
+		else{
+			q0 = textbacknl(t, q0, t->fr.maxlines>1 ? 1 : 0);
 			textsetorigin(t, q0);
-		} else
-			textshow(t, 0, 0, FALSE);
+		}
 		return;
 	case Kend:
 		typecommit(t);
-		if(t->iq1 > t->org+t->fr.nchars) {
-			if(t->iq1 > t->file->b.nc) {
-				// should not happen, but does. and it will crash textbacknl.
-				t->iq1 = t->file->b.nc;
-			}
-			q0 = textbacknl(t, t->iq1, 1);
+		if(t->what==Tag && !t->w->tagexpand){
+			t->w->tagexpand = TRUE;
+			t->w->tagsafe = FALSE;
+			winresize(t->w, t->w->r, TRUE, TRUE);
+		}
+		if(t->org+t->fr.nchars < t->iq1)
+			q0 = min(t->iq1, t->file->b.nc);	/* BUG: iq1>nc should never happen, but does! */
+		else
+			q0 = t->file->b.nc;
+		if(t->what==Body && q0==t->file->b.nc)
+			textshow(t, q0, q0, FALSE);
+		else{
+			q0 = textbacknl(t, q0, t->fr.maxlines>1 ? 1 : 0);
 			textsetorigin(t, q0);
-		} else
-			textshow(t, t->file->b.nc, t->file->b.nc, FALSE);
+			if(t->what != Body)
+				textscrollupifpastend(t);
+		}
 		return;
 	case KctrlA:	/* ^A: beginning of line */
 		typecommit(t);
@@ -1077,7 +1092,7 @@ textshow(Text *t, uint q0, uint q1, int doselect)
 			tsd = TRUE;
 		else if(q0==qe && qe==nc){
 			if(textreadc(t, nc-1) == '\n'){
-				if(t->fr.nlines<t->fr.maxlines)
+				if(t->fr.nlines < t->fr.maxlines)
 					tsd = TRUE;
 			}else
 				tsd = TRUE;
