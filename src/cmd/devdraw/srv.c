@@ -47,7 +47,7 @@ threadmain(int argc, char **argv)
 	case 'b':
 		break;
 	case 's':
-		// TODO: Update usage, man page.
+		/* TODO: Update usage, man page. */
 		srvname = EARGF(usage());
 		break;
 	default:
@@ -59,7 +59,7 @@ threadmain(int argc, char **argv)
 	if((p = getenv("DEVDRAWTRACE")) != nil)
 		trace = atoi(p);
 
-	if(srvname == nil) {
+	if(srvname == nil){
 		client0 = mallocz(sizeof(Client), 1);
 		if(client0 == nil)
 			sysfatal("initdraw: allocating client0: out of memory");
@@ -88,13 +88,13 @@ gfx_started(void)
 {
 	char *ns, *addr;
 
-	if(srvname == nil) {
-		// Legacy mode: serving single client on pipes.
+	if(srvname == nil){
+		/* Legacy mode: serving single client on pipes. */
 		proccreate(serveproc, client0, 0);
 		return;
 	}
 
-	// Server mode.
+	/* Server mode. */
 	if((ns = getns()) == nil)
 		sysfatal("out of memory");
 
@@ -118,7 +118,7 @@ listenproc(void *v)
 
 	USED(v);
 
-	for(;;) {
+	for(;;){
 		fd = listen(adir, dir);
 		if(fd < 0)
 			sysfatal("listen: %r");
@@ -167,7 +167,7 @@ serveproc(void *v)
 		runmsg(c, &m);
 	}
 
-	if(c == client0) {
+	if(c == client0){
 		rpc_shutdown();
 		threadexitsall(nil);
 	}
@@ -203,7 +203,7 @@ runmsg(Client *c, Wsysmsg *m)
 
 	case Tinit:
 		i = rpc_attach(c, m->label, m->winsize);
-		if(i == nil) {
+		if(i == nil){
 			replyerror(c, m);
 			break;
 		}
@@ -213,7 +213,7 @@ runmsg(Client *c, Wsysmsg *m)
 
 	case Trdmouse:
 		qlock(&c->eventlk);
-		if((c->mousetags.wi+1)%nelem(c->mousetags.t) == c->mousetags.ri) {
+		if((c->mousetags.wi+1)%nelem(c->mousetags.t) == c->mousetags.ri){
 			qunlock(&c->eventlk);
 			werrstr("too many queued mouse reads");
 			replyerror(c, m);
@@ -230,7 +230,7 @@ runmsg(Client *c, Wsysmsg *m)
 	case Trdkbd:
 	case Trdkbd4:
 		qlock(&c->eventlk);
-		if((c->kbdtags.wi+1)%nelem(c->kbdtags.t) == c->kbdtags.ri) {
+		if((c->kbdtags.wi+1)%nelem(c->kbdtags.t) == c->kbdtags.ri){
 			qunlock(&c->eventlk);
 			werrstr("too many queued keyboard reads");
 			replyerror(c, m);
@@ -252,7 +252,7 @@ runmsg(Client *c, Wsysmsg *m)
 	case Tcursor:
 		if(m->arrowcursor)
 			c->impl->rpc_setcursor(c, nil, nil);
-		else {
+		else{
 			scalecursor(&m->cursor2, &m->cursor);
 			c->impl->rpc_setcursor(c, &m->cursor, &m->cursor2);
 		}
@@ -362,7 +362,7 @@ matchkbd(Client *c)
 
 	if(c->kbd.stall)
 		return;
-	while(c->kbd.ri != c->kbd.wi && c->kbdtags.ri != c->kbdtags.wi){
+	while(c->kbd.ri!=c->kbd.wi && c->kbdtags.ri!=c->kbdtags.wi){
 		tag = c->kbdtags.t[c->kbdtags.ri++];
 		m.type = Rrdkbd;
 		if(tag&1)
@@ -389,7 +389,7 @@ matchmouse(Client *c)
 	if(canqlock(&c->eventlk))
 		sysfatal("matchmouse: event lock must be held");
 
-	while(c->mouse.ri != c->mouse.wi && c->mousetags.ri != c->mousetags.wi){
+	while(c->mouse.ri!=c->mouse.wi && c->mousetags.ri!=c->mousetags.wi){
 		m.type = Rrdmouse;
 		m.tag = c->mousetags.t[c->mousetags.ri++];
 		if(c->mousetags.ri == nelem(c->mousetags.t))
@@ -504,22 +504,25 @@ putkey(Client *c, int key)
 	matchkbd(c);
 }
 
-// gfx_abortcompose stops any pending compose sequence,
-// because a mouse button has been clicked.
-// It is called from the graphics thread with no locks held.
+/*
+ * Stop any pending compose sequence (due to a mouse click).
+ * Called from the graphics thread with no locks held.
+ */
 void
 gfx_abortcompose(Client *c)
 {
 	qlock(&c->eventlk);
-	if(c->kbd.alting) {
+	if(c->kbd.alting){
 		c->kbd.alting = 0;
 		c->kbd.nk = 0;
 	}
 	qunlock(&c->eventlk);
 }
 
-// gfx_keystroke records a single-rune keystroke.
-// It is called from the graphics thread with no locks held.
+/*
+ * Record a single-rune keystroke.
+ * Called from the graphics thread with no locks held.
+ */
 void
 gfx_keystroke(Client *c, int ch)
 {
@@ -532,7 +535,7 @@ gfx_keystroke(Client *c, int ch)
 		qunlock(&c->eventlk);
 		return;
 	}
-	if(ch == Kcmd+'r') {
+	if(ch == Kcmd+'r'){
 		if(c->forcedpi)
 			c->forcedpi = 0;
 		else if(c->displaydpi >= 200)
@@ -548,7 +551,7 @@ gfx_keystroke(Client *c, int ch)
 		qunlock(&c->eventlk);
 		return;
 	}
-	if(c->kbd.nk >= nelem(c->kbd.k))      // should not happen
+	if(c->kbd.nk >= nelem(c->kbd.k))	/* should not happen */
 		c->kbd.nk = 0;
 	c->kbd.k[c->kbd.nk++] = ch;
 	ch = latin1(c->kbd.k, c->kbd.nk);
@@ -567,7 +570,7 @@ gfx_keystroke(Client *c, int ch)
 		qunlock(&c->eventlk);
 		return;
 	}
-	// need more input
+	/* need more input */
 	qunlock(&c->eventlk);
 	return;
 }
