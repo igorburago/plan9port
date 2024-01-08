@@ -388,7 +388,6 @@ textinsert(Text *t, uint q0, Rune *r, uint n, int tofile)
 					textscrdraw(u);
 				}
 			}
-
 	}
 	if(q0 < t->iq1)
 		t->iq1 += n;
@@ -424,7 +423,7 @@ void
 textfill(Text *t)
 {
 	Rune *rp;
-	int i, n, m, nl;
+	uint n, nl, i;
 
 	if(t->fr.lastlinefull || t->nofill)
 		return;
@@ -438,21 +437,12 @@ textfill(Text *t)
 		if(n > 2000)	/* educated guess at reasonable amount */
 			n = 2000;
 		bufread(&t->file->b, t->org+t->fr.nchars, rp, n);
-		/*
-		 * it's expensive to frinsert more than we need, so
-		 * count newlines.
-		 */
-		nl = t->fr.maxlines-t->fr.nlines;
-		m = 0;
-		for(i=0; i<n; ){
-			if(rp[i++] == '\n'){
-				m++;
-				if(m >= nl)
-					break;
-			}
-		}
+		/* It's expensive to frinsert more than we need, so count newlines. */
+		nl = t->fr.maxlines-t->fr.nlines+1;
+		for(i=0; nl>0 && i<n; i++)
+			nl -= (rp[i] == '\n');
 		frinsert(&t->fr, rp, rp+i, t->fr.nchars);
-	}while(t->fr.lastlinefull == FALSE);
+	}while(!t->fr.lastlinefull);
 	fbuffree(rp);
 }
 
@@ -1690,18 +1680,20 @@ textforwardnl(Text *t, uint p, uint n)
 void
 textsetorigin(Text *t, uint org)
 {
-	int a, fixup;
-	Rune *r;
+	int fixup;
 	uint n;
+	Rune *r;
 
-	a = org-t->org;
-	fixup = 0;
-	if(a>=0 && a<t->fr.nchars){
-		frdelete(&t->fr, 0, a);
-		fixup = 1;	/* frdelete can leave end of last line in wrong selection mode; it doesn't know what follows */
-	}
-	else if(a<0 && -a<t->fr.nchars){
-		n = t->org - org;
+	fixup = FALSE;
+	if(org >= t->org){
+		n = org-t->org;
+		frdelete(&t->fr, 0, n);
+		/*
+		 * Since frdelete() does not know what follows, it can leave
+		 * the end of the last line in the wrong selection mode.
+		 */
+		fixup = (n < t->fr.nchars);
+	}else if(n=t->org-org, n<t->fr.nchars){
 		r = runemalloc(n);
 		bufread(&t->file->b, org, r, n);
 		frinsert(&t->fr, r, r+n, 0);
@@ -1712,7 +1704,7 @@ textsetorigin(Text *t, uint org)
 	textfill(t);
 	textscrdraw(t);
 	textsetselect(t, t->q0, t->q1);
-	if(fixup && t->fr.p1 > t->fr.p0)
+	if(fixup && t->fr.p1>t->fr.p0)
 		frdrawsel(&t->fr, frptofchar(&t->fr, t->fr.p1-1), t->fr.p1-1, t->fr.p1, 1);
 }
 
