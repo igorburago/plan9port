@@ -458,13 +458,13 @@ runxevent(XEvent *xev)
 		}
 		if(modp){
 			_x.kstate = c;
-			if(m.buttons || _x.kbuttons) {
+			if(m.buttons!=0 || _x.kbuttons!=0) {
 				_x.altdown = 0; // used alt
 				_x.kbuttons = 0;
 				if(c & ControlMask)
-					_x.kbuttons |= 2;
+					_x.kbuttons |= Mbutton2;
 				if(c & Mod1Mask)
-					_x.kbuttons |= 4;
+					_x.kbuttons |= Mbutton3;
 				gfx_mousetrack(w->client, m.xy.x, m.xy.y, m.buttons|_x.kbuttons, m.scroll, m.msec);
 			}
 			modp = 0;
@@ -1354,11 +1354,11 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 	m->buttons = 0;
 	m->scroll = 0;
 	if(s & Button1Mask)
-		m->buttons |= 1;
+		m->buttons |= Mbutton1;
 	if(s & Button2Mask)
-		m->buttons |= 2;
+		m->buttons |= Mbutton2;
 	if(s & Button3Mask)
-		m->buttons |= 4;
+		m->buttons |= Mbutton3;
 	if(s & Button4Mask){
 		m->buttons = Mlinescroll;
 		m->scroll = -1;
@@ -1782,11 +1782,11 @@ rpc_bouncemouse(Client *c, Mouse m)
 	e.type = ButtonPress;
 	e.state = 0;
 	e.button = 0;
-	if(m.buttons&1)
+	if(m.buttons & Mbutton1)
 		e.button = 1;
-	else if(m.buttons&2)
+	else if(m.buttons & Mbutton2)
 		e.button = 2;
-	else if(m.buttons&4)
+	else if(m.buttons & Mbutton3)
 		e.button = 3;
 	e.same_screen = 1;
 	XTranslateCoordinates(_x.display, w->drawable,

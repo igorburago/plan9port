@@ -33,18 +33,19 @@ AUTOFRAMEWORK(CoreFoundation)
 
 // TODO: Maintain list of views for dock menu.
 
-static void setprocname(const char*);
-static uint keycvt(uint);
-static uint msec(void);
+static uint	keycvt(uint);
+static int	mousebuttons(void);
+static uint	msec(void);
+static void	setprocname(const char*);
 
+static void	rpc_bouncemouse(Client*, Mouse);
+static void	rpc_flush(Client*, Rectangle);
 static void	rpc_resizeimg(Client*);
 static void	rpc_resizewindow(Client*, Rectangle);
 static void	rpc_setcursor(Client*, Cursor*, Cursor2*);
 static void	rpc_setlabel(Client*, char*);
 static void	rpc_setmouse(Client*, Point);
 static void	rpc_topwin(Client*);
-static void	rpc_bouncemouse(Client*, Mouse);
-static void	rpc_flush(Client*, Rectangle);
 
 static ClientImpl macimpl = {
 	rpc_resizeimg,
@@ -671,20 +672,19 @@ scrolldeltatoint(CGFloat delta)
 {
 	static NSEventModifierFlags omod;
 	NSEventModifierFlags m;
-	uint b;
+	int b;
 
 	LOG(@"flagsChanged");
-	m = [e modifierFlags];
+	m = e.modifierFlags;
 
-	b = [NSEvent pressedMouseButtons];
-	b = (b&~6) | (b&4)>>1 | (b&2)<<1;
-	if(b){
+	b = mousebuttons();
+	if(b != 0){
 		if(m & ~omod & NSEventModifierFlagControl)
-			b |= 1;
+			b |= Mbutton1;
 		if(m & ~omod & NSEventModifierFlagOption)
-			b |= 2;
+			b |= Mbutton2;
 		if(m & ~omod & NSEventModifierFlagCommand)
-			b |= 4;
+			b |= Mbutton3;
 		[self sendmouse:b];
 	}else if(m & ~omod & NSEventModifierFlagOption)
 		gfx_keystroke(self.client, Kalt);
@@ -715,12 +715,12 @@ scrolldeltatoint(CGFloat delta)
 		&& msec() - _tapTime < 250){
 		switch(_tapFingers){
 		case 3:
-			[self sendmouse:2];
+			[self sendmouse:Mbutton2];
 			[self sendmouse:0];
 			break;
 		case 4:
-			[self sendmouse:2];
-			[self sendmouse:1];
+			[self sendmouse:Mbutton2];
+			[self sendmouse:Mbutton1];
 			[self sendmouse:0];
 			break;
 		}
@@ -732,23 +732,37 @@ scrolldeltatoint(CGFloat delta)
 	_tapping = NO;
 }
 
+static int
+mousebuttons(void)
+{
+	NSUInteger eb;
+	int b;
+
+	eb = [NSEvent pressedMouseButtons];
+	b = 0;
+	if(eb & 1)
+		b |= Mbutton1;
+	if(eb & 4)
+		b |= Mbutton2;
+	if(eb & 2)
+		b |= Mbutton3;
+	return b;
+}
+
 - (void)getmouse:(NSEvent *)e
 {
-	NSUInteger b;
 	NSEventModifierFlags m;
+	int b;
 
-	b = [NSEvent pressedMouseButtons];
-	b = b&~6 | (b&4)>>1 | (b&2)<<1;
-	b = mouseswap(b);
-
-	if(b == 1){
+	b = mouseswap(mousebuttons());
+	if(b == Mbutton1){
 		m = [e modifierFlags];
 		if(m & NSEventModifierFlagOption){
 			gfx_abortcompose(self.client);
-			b = 2;
+			b = Mbutton2;
 		}else
 		if(m & NSEventModifierFlagCommand)
-			b = 4;
+			b = Mbutton3;
 	}
 	[self sendmouse:b];
 }
