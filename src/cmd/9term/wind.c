@@ -1611,28 +1611,25 @@ wshow(Window *w, uint q0)
 void
 wsetorigin(Window *w, uint org)
 {
-	int a, fixup;
-	Rune *r;
-	uint n;
+	int fixup;
 
-	a = org-w->org;
-	fixup = 0;
-	if(a>=0 && a<w->f.nchars){
-		frdelete(&w->f, 0, a);
-		fixup = 1;	/* frdelete can leave end of last line in wrong selection mode; it doesn't know what follows */
-	}else if(a<0 && -a<w->f.nchars){
-		n = w->org - org;
-		r = runemalloc(n);
-		runemove(r, w->r+org, n);
-		frinsert(&w->f, r, r+n, 0);
-		free(r);
-	}else
+	fixup = FALSE;
+	if(org >= w->org){
+		frdelete(&w->f, 0, org-w->org);
+		/*
+		 * Since frdelete() does not know what follows, it can leave
+		 * the end of the last line in the wrong selection mode.
+		 */
+		fixup = (org-w->org < w->f.nchars);
+	}else if(w->org-org < w->f.nchars)
+		frinsert(&w->f, w->r+org, w->r+w->org, 0);
+	else
 		frdelete(&w->f, 0, w->f.nchars);
 	w->org = org;
 	wfill(w);
 	wscrdraw(w);
 	wsetselect(w, w->q0, w->q1);
-	if(fixup && w->f.p1 > w->f.p0)
+	if(fixup && w->f.p1>w->f.p0)
 		frdrawsel(&w->f, frptofchar(&w->f, w->f.p1-1), w->f.p1-1, w->f.p1, 1);
 }
 
@@ -1745,35 +1742,12 @@ winsert(Window *w, Rune *r, int n, uint q0)
 void
 wfill(Window *w)
 {
-	Rune *rp;
-	int i, n, m, nl;
-
-	if(w->f.lastlinefull)
-		return;
-	rp = malloc(messagesize);
-	do{
-		n = w->nr-(w->org+w->f.nchars);
-		if(n == 0)
-			break;
-		if(n > 2000)	/* educated guess at reasonable amount */
-			n = 2000;
-		runemove(rp, w->r+(w->org+w->f.nchars), n);
-		/*
-		 * it's expensive to frinsert more than we need, so
-		 * count newlines.
-		 */
-		nl = w->f.maxlines-w->f.nlines;
-		m = 0;
-		for(i=0; i<n; ){
-			if(rp[i++] == '\n'){
-				m++;
-				if(m >= nl)
-					break;
-			}
-		}
-		frinsert(&w->f, rp, rp+i, w->f.nchars);
-	}while(w->f.lastlinefull == FALSE);
-	free(rp);
+	/*
+	 * Just pass the total range of subsequent runes to frinsert();
+	 * it knows to stop inserting once the frame gets filled.
+	 */
+	if(!w->f.lastlinefull)
+		frinsert(&w->f, w->r+w->org+w->f.nchars, w->r+w->nr, w->f.nchars);
 }
 
 char*
