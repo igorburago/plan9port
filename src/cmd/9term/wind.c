@@ -284,9 +284,12 @@ winctl(void *arg)
 		case WKey:
 			for(i=0; kbdr[i]!=L'\0'; i++)
 				wkeyctl(w, kbdr[i]);
-/*			wkeyctl(w, r); */
-/*			while(nbrecv(w->ck, &r)) */
-/*				wkeyctl(w, r); */
+
+			/* As soon as typing starts, cancel any inertial scrolling in progress. */
+			if(w->mousescroll.inmotion && w->mousescroll.inertial){
+				w->mousescroll.motionhaltup = TRUE;
+				w->mousescroll.motionhaltdown = TRUE;
+			}
 			break;
 		case WMouse:
 			if(w->mouseopen){
