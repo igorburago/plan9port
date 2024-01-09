@@ -158,20 +158,19 @@ hangupnote(void *a, char *msg)
 }
 
 void
-keyboardthread(void *v)
+keyboardthread(void *arg)
 {
-	Rune buf[2][20], *rp;
+	Rune buf[2][21], *rp;
 	int i, n;
 
-	USED(v);
+	USED(arg);
 	threadsetname("keyboardthread");
-	n = 0;
-	for(;;){
+
+	for(n=0; ; n=1-n){
 		rp = buf[n];
-		n = 1-n;
-		recv(keyboardctl->c, rp);
-		for(i=1; i<nelem(buf[0])-1; i++)
-			if(nbrecv(keyboardctl->c, rp+i) <= 0)
+		recv(keyboardctl->c, &rp[0]);
+		for(i=1; i<nelem(buf[n])-1; i++)
+			if(nbrecv(keyboardctl->c, &rp[i]) <= 0)
 				break;
 		rp[i] = L'\0';
 		sendp(w->ck, rp);
@@ -179,19 +178,23 @@ keyboardthread(void *v)
 }
 
 void
-resizethread(void *v)
+resizethread(void *arg)
 {
-	Point p;
+	Point cs, fs;
 
-	USED(v);
+	USED(arg);
+	threadsetname("resizethread");
 
 	for(;;){
-		p = stringsize(display->defaultfont, "0");
-		if(p.x && p.y)
-			updatewinsize(Dy(screen->r)/p.y, (Dx(screen->r)-Scrollwid-2)/p.x,
-				Dx(screen->r), Dy(screen->r));
-		wresize(w, screen, 0);
+		wresize(w, screen, FALSE);
 		flushimage(display, 1);
+
+		cs = stringsize(display->defaultfont, "0");
+		if(cs.x!=0 && cs.y!=0){
+			fs = subpt(w->f.r.max, w->f.r.min);
+			updatewinsize(fs.y/cs.y, fs.x/cs.x, fs.y, fs.x);
+		}
+
 		if(recv(mousectl->resizec, nil) != 1)
 			break;
 		if(getwindow(display, Refnone) < 0)

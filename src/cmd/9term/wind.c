@@ -119,19 +119,20 @@ wsetname(Window *w)
 void
 wresize(Window *w, Image *i, int move)
 {
-	Rectangle r, or;
+	Rectangle newr, r;
 
-	or = w->i->r;
-	if(move || (Dx(or)==Dx(i->r) && Dy(or)==Dy(i->r)))
-		draw(i, i->r, w->i, nil, w->i->r.min);
+	newr = i->r;
+	r = w->i->r;
+	if(move || (Dx(newr)==Dx(r) && Dy(newr)==Dy(r)))
+		draw(i, newr, w->i, nil, r.min);
 	if(w->i != i){
-fprint(2, "res %p %p\n", w->i, i);
+		fprint(2, "wresize: w->i=%p i=%p\n", w->i, i);
 		freeimage(w->i);
 		w->i = i;
 	}
 /*	wsetname(w); */
 /*XXX	w->mc.image = i; */
-	r = insetrect(i->r, wscale(w, Selborder)+wscale(w, 1));
+	r = insetrect(newr, wscale(w, Selborder)+wscale(w, 1));
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+wscale(w, Scrollwid);
 	w->lastsr = ZR;
@@ -143,7 +144,7 @@ fprint(2, "res %p %p\n", w->i, i);
 		frinit(&w->f, r, w->f.font, w->i, cols);
 		wsetcols(w);
 		w->f.maxtab = maxtab*stringwidth(w->f.font, "0");
-		r = insetrect(w->i->r, wscale(w, Selborder));
+		r = insetrect(newr, wscale(w, Selborder));
 		draw(w->i, r, cols[BACK], nil, w->f.entire.min);
 		wfill(w);
 		wsetselect(w, w->q0, w->q1);
