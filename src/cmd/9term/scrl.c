@@ -152,10 +152,10 @@ wscrclick(Window *w, int but)
 	enum { Debouncemsec = 2*Dragscrollpacemsec };
 	int butmask, totshift;
 	Rectangle sr;
-	int sx, sh, lh, mx, my, y0, speed, delta, minmove;
+	int sx, sh, lh, my, y0, speed, delta, minmove;
 	uint tot, oldp0, p0;
 	Dragscroll scroll;
-	int wait, first, paused;
+	int wait, first;
 	uint t0;
 
 	butmask = 1<<(but-1);	/* when called, the button is down */
@@ -179,10 +179,7 @@ wscrclick(Window *w, int but)
 					flushimage(display, 1);
 				}
 			}
-			do{
-				recv(w->mc.c, &w->mc.m);
-				mx = w->mc.m.xy.x;
-			}while((w->mc.m.buttons&butmask) && !(sr.min.x<=mx && mx<sr.max.x));
+			recv(w->mc.c, &w->mc.m);
 		}while(w->mc.m.buttons & butmask);
 		break;
 	case 1:
@@ -235,15 +232,6 @@ wscrclick(Window *w, int but)
 				first = FALSE;
 			}else
 				dragscrollpollmouse(&scroll, &w->mc, Dragscrollsleepmsec);
-			for(paused=FALSE; w->mc.m.buttons&butmask; paused=TRUE){
-				mx = w->mc.m.xy.x;
-				if(sr.min.x<=mx && mx<sr.max.x){
-					if(paused)
-						dragscrollreset(&scroll, &w->mc.m, 0);
-					break;
-				}
-				recv(w->mc.c, &w->mc.m);
-			}
 		}while(w->mc.m.buttons & butmask);
 		break;
 	}
