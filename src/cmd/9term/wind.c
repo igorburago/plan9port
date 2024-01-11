@@ -1591,7 +1591,7 @@ wsetorigin(Window *w, uint org)
 void
 wsetselect(Window *w, uint q0, uint q1)
 {
-	int p0, p1;
+	int p0, p1, shouldtick;
 
 	/* w->f.p0 and w->f.p1 are always right; w->q0 and w->q1 may be off */
 	w->q0 = q0;
@@ -1599,6 +1599,7 @@ wsetselect(Window *w, uint q0, uint q1)
 	/* compute desired p0,p1 from q0,q1 */
 	p0 = q0-w->org;
 	p1 = q1-w->org;
+	shouldtick = (p0==p1 && 0<=p0 && p0<=w->f.nchars);
 	if(p0 < 0)
 		p0 = 0;
 	if(p1 < 0)
@@ -1607,32 +1608,34 @@ wsetselect(Window *w, uint q0, uint q1)
 		p0 = w->f.nchars;
 	if(p1 > w->f.nchars)
 		p1 = w->f.nchars;
-	if(p0==w->f.p0 && p1==w->f.p1)
+	if(p0==w->f.p0 && p1==w->f.p1){
+		if(p0==p1 && shouldtick!=w->f.ticked)
+			frtick(&w->f, frptofchar(&w->f, p0), shouldtick);
 		return;
+	}
 	/* screen disagrees with desired selection */
 	if(w->f.p1<=p0 || p1<=w->f.p0 || p0==p1 || w->f.p1==w->f.p0){
 		/* no overlap or too easy to bother trying */
 		frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, w->f.p1, 0);
-		frdrawsel(&w->f, frptofchar(&w->f, p0), p0, p1, 1);
-		goto Return;
+		if(p0!=p1 || shouldtick)
+			frdrawsel(&w->f, frptofchar(&w->f, p0), p0, p1, 1);
+	}else{
+		/* overlap; avoid unnecessary painting */
+		if(p0 < w->f.p0){
+			/* extend selection backwards */
+			frdrawsel(&w->f, frptofchar(&w->f, p0), p0, w->f.p0, 1);
+		}else if(p0 > w->f.p0){
+			/* trim first part of selection */
+			frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, p0, 0);
+		}
+		if(p1 > w->f.p1){
+			/* extend selection forwards */
+			frdrawsel(&w->f, frptofchar(&w->f, w->f.p1), w->f.p1, p1, 1);
+		}else if(p1 < w->f.p1){
+			/* trim last part of selection */
+			frdrawsel(&w->f, frptofchar(&w->f, p1), p1, w->f.p1, 0);
+		}
 	}
-	/* overlap; avoid unnecessary painting */
-	if(p0 < w->f.p0){
-		/* extend selection backwards */
-		frdrawsel(&w->f, frptofchar(&w->f, p0), p0, w->f.p0, 1);
-	}else if(p0 > w->f.p0){
-		/* trim first part of selection */
-		frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, p0, 0);
-	}
-	if(p1 > w->f.p1){
-		/* extend selection forwards */
-		frdrawsel(&w->f, frptofchar(&w->f, w->f.p1), w->f.p1, p1, 1);
-	}else if(p1 < w->f.p1){
-		/* trim last part of selection */
-		frdrawsel(&w->f, frptofchar(&w->f, p1), p1, w->f.p1, 0);
-	}
-
-    Return:
 	w->f.p0 = p0;
 	w->f.p1 = p1;
 }
