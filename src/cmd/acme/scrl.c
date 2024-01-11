@@ -161,9 +161,7 @@ textscrclick(Text *t, int but)
 			p0 = (uvlong)tot * (my - sr.min.y) / sh;
 			if(p0 != oldp0){
 				oldp0 = p0;
-				if(p0 >= t->q1)
-					p0 = textbacknl(t, p0, 2);
-				p0 = textforwardnl(t, p0, 0);
+				p0 = textbacknl(t, p0, 0);
 				if(p0 != t->org){
 					textsetorigin(t, p0);
 					flushimage(display, 1);
