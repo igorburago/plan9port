@@ -173,7 +173,7 @@ wscrclick(Window *w, int but)
 			p0 = ((uvlong)tot * (my - sr.min.y) / sh) << totshift;
 			if(p0 != oldp0){
 				oldp0 = p0;
-				p0 = wforwardnl(w, p0, 0);
+				p0 = wbacknl(w, p0, 0);
 				if(p0 != w->org){
 					wsetorigin(w, p0);
 					flushimage(display, 1);
