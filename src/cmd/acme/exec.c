@@ -1017,8 +1017,8 @@ cut(Text *et, Text *t, Text *_0, int dosnarf, int docut, Rune *_2, int _3)
 void
 paste(Text *et, Text *t, Text *_0, int selectall, int tobody, Rune *_1, int _2)
 {
-	int c;
-	uint q, q0, q1, n;
+	int c, replacenl;
+	uint q, q0, q1, n, i;
 	Rune *r;
 
 	USED(_0);
@@ -1038,7 +1038,7 @@ paste(Text *et, Text *t, Text *_0, int selectall, int tobody, Rune *_1, int _2)
 		return;
 	if(t->w!=nil && et->w!=t->w){
 		c = 'M';
-		if(et->w)
+		if(et->w != nil)
 			c = et->w->owner;
 		winlock(t->w, c);
 	}
@@ -1047,13 +1047,16 @@ paste(Text *et, Text *t, Text *_0, int selectall, int tobody, Rune *_1, int _2)
 	q0 = t->q0;
 	q1 = t->q0+snarfbuf.nc;
 	r = fbufalloc();
+	replacenl = (t->what==Rowtag || t->what==Columntag);
 	while(q0 < q1){
 		n = q1 - q0;
 		if(n > RBUFSIZE)
 			n = RBUFSIZE;
-		if(r == nil)
-			r = runemalloc(n);
 		bufread(&snarfbuf, q, r, n);
+		if(replacenl)
+			for(i=0; i<n; i++)
+				if(r[i] == '\n')
+					r[i] = ' ';
 		textinsert(t, q0, r, n, TRUE);
 		q += n;
 		q0 += n;
@@ -1063,7 +1066,7 @@ paste(Text *et, Text *t, Text *_0, int selectall, int tobody, Rune *_1, int _2)
 		textsetselect(t, t->q0, q1);
 	else
 		textsetselect(t, q1, q1);
-	if(t->w){
+	if(t->w != nil){
 		textscrdraw(t);
 		winsettag(t->w);
 	}

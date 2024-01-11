@@ -1131,26 +1131,19 @@ iconinit(void)
 	but3col = allocimage(display, r, screen->chan, 1, 0x006600FF);
 }
 
-/*
- * /dev/snarf updates when the file is closed, so we must open our own
- * fd here rather than use snarffd
- */
-
-/* rio truncates larges snarf buffers, so this avoids using the
- * service if the string is huge */
-
-#define MAXSNARF 100*1024
-
 void
 acmeputsnarf(void)
 {
-	int i, n;
+	/*
+	 * Rio truncates larges snarf buffers, so this limit
+	 * prevents using the service if the string is huge.
+	 */
+	enum { Maxsnarf = 100*1024 };
 	Fmt f;
+	int i, n;
 	char *s;
 
-	if(snarfbuf.nc==0)
-		return;
-	if(snarfbuf.nc > MAXSNARF)
+	if(snarfbuf.nc<1 || Maxsnarf<snarfbuf.nc)
 		return;
 
 	fmtstrinit(&f);
@@ -1163,7 +1156,7 @@ acmeputsnarf(void)
 			break;
 	}
 	s = fmtstrflush(&f);
-	if(s && s[0])
+	if(s!=nil && s[0]!='\0')
 		putsnarf(s);
 	free(s);
 }
@@ -1172,11 +1165,11 @@ void
 acmegetsnarf(void)
 {
 	char *s;
-	int nb, nr, nulls, len;
 	Rune *r;
+	int len, nb, nr, nulls;
 
 	s = getsnarf();
-	if(s == nil || s[0]==0){
+	if(s==nil || s[0]=='\0'){
 		free(s);
 		return;
 	}
@@ -1196,11 +1189,11 @@ ismtpt(char *file)
 	int n;
 
 	if(mtpt == nil)
-		return 0;
-
+		return FALSE;
 	/* This is not foolproof, but it will stop a lot of them. */
 	n = strlen(mtpt);
-	return strncmp(file, mtpt, n) == 0 && ((n > 0 && mtpt[n-1] == '/') || file[n] == '/' || file[n] == 0);
+	return strncmp(file, mtpt, n)==0 &&
+		((n>0 && mtpt[n-1]=='/') || file[n]=='/' || file[n]=='\0');
 }
 
 int
