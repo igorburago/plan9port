@@ -217,15 +217,13 @@ finishrpc(Muxrpc *r, Wsysmsg *w)
 {
 	uchar *p;
 	void *v;
-	int n;
 
 	if(!muxrpccanfinish(r, &v))
 		return 0;
 	p = v;
 	if(p == nil)	/* eof on connection */
 		exit(0);
-	GET(p, n);
-	convM2W(p, n, w);
+	convM2W(p, WMSGLEN4(p), w);
 	free(p);
 	return 1;
 }

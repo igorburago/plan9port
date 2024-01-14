@@ -5,6 +5,34 @@
 #include <cursor.h>
 #include <drawfcall.h>
 
+#define PUT1(p, x)	((p)[0] = (uchar)(x), 1)
+#define GET1(p, x)	((x) = (p)[0], 1)
+
+#define PUT2(p, x) ( \
+	(p)[0] = ((u16int)(x)>>8) & 0xFF, \
+	(p)[1] = (u16int)(x) & 0xFF, \
+	2)
+#define GET2(p, x) ( \
+	(x) = ((u16int)(p)[0]<<8) | (u16int)(p)[1], \
+	2)
+
+#define PUT4(p, x) ( \
+	(p)[0] = ((u32int)(x)>>24) & 0xFF, \
+	(p)[1] = ((u32int)(x)>>16) & 0xFF, \
+	(p)[2] = ((u32int)(x)>>8) & 0xFF, \
+	(p)[3] = (u32int)(x) & 0xFF, \
+	4)
+#define GET4(p, x) ( \
+	(x) = ((u32int)(p)[0]<<24) | ((u32int)(p)[1]<<16) | \
+		((u32int)(p)[2]<<8) | (u32int)(p)[3], \
+	4)
+
+#define PUTN(p, buf, n)	(memmove((p), (buf), (n)), (n))
+#define GETN(p, buf, n)	(memmove((buf), (p), (n)), (n))
+
+#define PUTSTR(p, s)	(putstring((p), (s)))
+#define GETSTR(p, s)	(getstring((p), &(s)))
+
 static int
 _stringsize(char *s)
 {
@@ -14,24 +42,24 @@ _stringsize(char *s)
 }
 
 static int
-PUTSTRING(uchar *p, char *s)
+putstring(uchar *p, char *s)
 {
 	int n;
 
 	if(s == nil)
 		s = "";
 	n = strlen(s);
-	PUT(p, n);
+	PUT4(p, n);
 	memmove(p+4, s, n);
 	return n+4;
 }
 
 static int
-GETSTRING(uchar *p, char **s)
+getstring(uchar *p, char **s)
 {
 	int n;
 
-	GET(p, n);
+	GET4(p, n);
 	memmove(p, p+4, n);
 	*s = (char*)p;
 	p[n] = 0;
@@ -100,16 +128,18 @@ sizeW2M(Wsysmsg *m)
 }
 
 uint
-convW2M(Wsysmsg *m, uchar *p, uint n)
+convW2M(Wsysmsg *m, uchar *buf, uint nbuf)
 {
-	int nn;
+	uchar *p;
+	int n;
 
-	nn = sizeW2M(m);
-	if(n < nn || nn == 0 || n < 6)
+	n = sizeW2M(m);
+	if(n<6 || n>nbuf)
 		return 0;
-	PUT(p, nn);
-	p[4] = m->tag;
-	p[5] = m->type;
+	p = buf;
+	p += PUT4(p, n);
+	p += PUT1(p, m->tag);
+	p += PUT1(p, m->type);
 
 	switch(m->type){
 	default:
@@ -131,96 +161,99 @@ convW2M(Wsysmsg *m, uchar *p, uint n)
 	case Rresize:
 		break;
 	case Rerror:
-		PUTSTRING(p+6, m->error);
+		p += PUTSTR(p, m->error);
 		break;
 	case Rrdmouse:
-		PUT(p+6, m->mouse.xy.x);
-		PUT(p+10, m->mouse.xy.y);
-		PUT2(p+14, m->mouse.buttons);
-		PUT(p+16, m->mouse.scroll);
-		PUT(p+20, m->mouse.msec);
-		p[24] = m->resized;
+		p += PUT4(p, m->mouse.xy.x);
+		p += PUT4(p, m->mouse.xy.y);
+		p += PUT2(p, m->mouse.buttons);
+		p += PUT4(p, m->mouse.scroll);
+		p += PUT4(p, m->mouse.msec);
+		p += PUT1(p, m->resized);
 		break;
 	case Tbouncemouse:
-		PUT(p+6, m->mouse.xy.x);
-		PUT(p+10, m->mouse.xy.y);
-		PUT2(p+14, m->mouse.buttons);
-		PUT(p+16, m->mouse.scroll);
+		p += PUT4(p, m->mouse.xy.x);
+		p += PUT4(p, m->mouse.xy.y);
+		p += PUT2(p, m->mouse.buttons);
+		p += PUT4(p, m->mouse.scroll);
 		break;
 	case Tmoveto:
-		PUT(p+6, m->mouse.xy.x);
-		PUT(p+10, m->mouse.xy.y);
+		p += PUT4(p, m->mouse.xy.x);
+		p += PUT4(p, m->mouse.xy.y);
 		break;
 	case Tcursor:
-		PUT(p+6, m->cursor.offset.x);
-		PUT(p+10, m->cursor.offset.y);
-		memmove(p+14, m->cursor.clr, sizeof m->cursor.clr);
-		memmove(p+46, m->cursor.set, sizeof m->cursor.set);
-		p[78] = m->arrowcursor;
+		p += PUT4(p, m->cursor.offset.x);
+		p += PUT4(p, m->cursor.offset.y);
+		p += PUTN(p, m->cursor.clr, sizeof(m->cursor.clr));
+		p += PUTN(p, m->cursor.set, sizeof(m->cursor.set));
+		p += PUT1(p, m->arrowcursor);
 		break;
 	case Tcursor2:
-		PUT(p+6, m->cursor.offset.x);
-		PUT(p+10, m->cursor.offset.y);
-		memmove(p+14, m->cursor.clr, sizeof m->cursor.clr);
-		memmove(p+46, m->cursor.set, sizeof m->cursor.set);
-		PUT(p+78, m->cursor2.offset.x);
-		PUT(p+82, m->cursor2.offset.y);
-		memmove(p+86, m->cursor2.clr, sizeof m->cursor2.clr);
-		memmove(p+214, m->cursor2.set, sizeof m->cursor2.set);
-		p[342] = m->arrowcursor;
+		p += PUT4(p, m->cursor.offset.x);
+		p += PUT4(p, m->cursor.offset.y);
+		p += PUTN(p, m->cursor.clr, sizeof(m->cursor.clr));
+		p += PUTN(p, m->cursor.set, sizeof(m->cursor.set));
+		p += PUT4(p, m->cursor2.offset.x);
+		p += PUT4(p, m->cursor2.offset.y);
+		p += PUTN(p, m->cursor2.clr, sizeof(m->cursor2.clr));
+		p += PUTN(p, m->cursor2.set, sizeof(m->cursor2.set));
+		p += PUT1(p, m->arrowcursor);
 		break;
 	case Rrdkbd:
-		PUT2(p+6, m->rune);
+		p += PUT2(p, m->rune);
 		break;
 	case Rrdkbd4:
-		PUT(p+6, m->rune);
+		p += PUT4(p, m->rune);
 		break;
 	case Tlabel:
-		PUTSTRING(p+6, m->label);
+		p += PUTSTR(p, m->label);
 		break;
 	case Tctxt:
-		PUTSTRING(p+6, m->id);
+		p += PUTSTR(p, m->id);
 		break;
 	case Tinit:
-		p += 6;
-		p += PUTSTRING(p, m->winsize);
-		p += PUTSTRING(p, m->label);
+		p += PUTSTR(p, m->winsize);
+		p += PUTSTR(p, m->label);
 		break;
 	case Rrdsnarf:
 	case Twrsnarf:
-		PUTSTRING(p+6, m->snarf);
+		p += PUTSTR(p, m->snarf);
 		break;
 	case Rrddraw:
 	case Twrdraw:
-		PUT(p+6, m->count);
-		memmove(p+10, m->data, m->count);
+		p += PUT4(p, m->count);
+		p += PUTN(p, m->data, m->count);
 		break;
 	case Trddraw:
 	case Rwrdraw:
-		PUT(p+6, m->count);
+		p += PUT4(p, m->count);
 		break;
 	case Tresize:
-		PUT(p+6, m->rect.min.x);
-		PUT(p+10, m->rect.min.y);
-		PUT(p+14, m->rect.max.x);
-		PUT(p+18, m->rect.max.y);
+		p += PUT4(p, m->rect.min.x);
+		p += PUT4(p, m->rect.min.y);
+		p += PUT4(p, m->rect.max.x);
+		p += PUT4(p, m->rect.max.y);
 		break;
 	}
-	return nn;
+	if(p-buf != n)
+		sysfatal("convW2M: message size mismatch");
+	return n;
 }
 
 uint
-convM2W(uchar *p, uint n, Wsysmsg *m)
+convM2W(uchar *buf, uint nbuf, Wsysmsg *m)
 {
-	int nn;
+	uchar *p;
+	int n;
 
-	if(n < 6)
+	if(nbuf < 6)
 		return 0;
-	GET(p, nn);
-	if(nn > n)
+	p = buf;
+	p += GET4(p, n);
+	if(n<6 || n>nbuf)
 		return 0;
-	m->tag = p[4];
-	m->type = p[5];
+	p += GET1(p, m->tag);
+	p += GET1(p, m->type);
 	switch(m->type){
 	default:
 		return 0;
@@ -241,82 +274,84 @@ convM2W(uchar *p, uint n, Wsysmsg *m)
 	case Rresize:
 		break;
 	case Rerror:
-		GETSTRING(p+6, &m->error);
+		p += GETSTR(p, m->error);
 		break;
 	case Rrdmouse:
-		GET(p+6, m->mouse.xy.x);
-		GET(p+10, m->mouse.xy.y);
-		GET2(p+14, m->mouse.buttons);
-		GET(p+16, m->mouse.scroll);
-		GET(p+20, m->mouse.msec);
-		m->resized = p[24];
+		p += GET4(p, m->mouse.xy.x);
+		p += GET4(p, m->mouse.xy.y);
+		p += GET2(p, m->mouse.buttons);
+		p += GET4(p, m->mouse.scroll);
+		p += GET4(p, m->mouse.msec);
+		p += GET1(p, m->resized);
 		break;
 	case Tbouncemouse:
-		GET(p+6, m->mouse.xy.x);
-		GET(p+10, m->mouse.xy.y);
-		GET2(p+14, m->mouse.buttons);
-		GET(p+16, m->mouse.scroll);
+		p += GET4(p, m->mouse.xy.x);
+		p += GET4(p, m->mouse.xy.y);
+		p += GET2(p, m->mouse.buttons);
+		p += GET4(p, m->mouse.scroll);
 		break;
 	case Tmoveto:
-		GET(p+6, m->mouse.xy.x);
-		GET(p+10, m->mouse.xy.y);
+		p += GET4(p, m->mouse.xy.x);
+		p += GET4(p, m->mouse.xy.y);
 		break;
 	case Tcursor:
-		GET(p+6, m->cursor.offset.x);
-		GET(p+10, m->cursor.offset.y);
-		memmove(m->cursor.clr, p+14, sizeof m->cursor.clr);
-		memmove(m->cursor.set, p+46, sizeof m->cursor.set);
-		m->arrowcursor = p[78];
+		p += GET4(p, m->cursor.offset.x);
+		p += GET4(p, m->cursor.offset.y);
+		p += GETN(p, m->cursor.clr, sizeof(m->cursor.clr));
+		p += GETN(p, m->cursor.set, sizeof(m->cursor.set));
+		p += GET1(p, m->arrowcursor);
 		break;
 	case Tcursor2:
-		GET(p+6, m->cursor.offset.x);
-		GET(p+10, m->cursor.offset.y);
-		memmove(m->cursor.clr, p+14, sizeof m->cursor.clr);
-		memmove(m->cursor.set, p+46, sizeof m->cursor.set);
-		GET(p+78, m->cursor2.offset.x);
-		GET(p+82, m->cursor2.offset.y);
-		memmove(m->cursor2.clr, p+86, sizeof m->cursor2.clr);
-		memmove(m->cursor2.set, p+214, sizeof m->cursor2.set);
-		m->arrowcursor = p[342];
+		p += GET4(p, m->cursor.offset.x);
+		p += GET4(p, m->cursor.offset.y);
+		p += GETN(p, m->cursor.clr, sizeof(m->cursor.clr));
+		p += GETN(p, m->cursor.set, sizeof(m->cursor.set));
+		p += GET4(p, m->cursor2.offset.x);
+		p += GET4(p, m->cursor2.offset.y);
+		p += GETN(p, m->cursor2.clr, sizeof(m->cursor2.clr));
+		p += GETN(p, m->cursor2.set, sizeof(m->cursor2.set));
+		p += GET1(p, m->arrowcursor);
 		break;
 	case Rrdkbd:
-		GET2(p+6, m->rune);
+		p += GET2(p, m->rune);
 		break;
 	case Rrdkbd4:
-		GET(p+6, m->rune);
+		p += GET4(p, m->rune);
 		break;
 	case Tlabel:
-		GETSTRING(p+6, &m->label);
+		p += GETSTR(p, m->label);
 		break;
 	case Tctxt:
-		GETSTRING(p+6, &m->id);
+		p += GETSTR(p, m->id);
 		break;
 	case Tinit:
-		p += 6;
-		p += GETSTRING(p, &m->winsize);
-		p += GETSTRING(p, &m->label);
+		p += GETSTR(p, m->winsize);
+		p += GETSTR(p, m->label);
 		break;
 	case Rrdsnarf:
 	case Twrsnarf:
-		GETSTRING(p+6, &m->snarf);
+		p += GETSTR(p, m->snarf);
 		break;
 	case Rrddraw:
 	case Twrdraw:
-		GET(p+6, m->count);
-		m->data = p+10;
+		p += GET4(p, m->count);
+		m->data = p;
+		p += m->count;
 		break;
 	case Trddraw:
 	case Rwrdraw:
-		GET(p+6, m->count);
+		p += GET4(p, m->count);
 		break;
 	case Tresize:
-		GET(p+6, m->rect.min.x);
-		GET(p+10, m->rect.min.y);
-		GET(p+14, m->rect.max.x);
-		GET(p+18, m->rect.max.y);
+		p += GET4(p, m->rect.min.x);
+		p += GET4(p, m->rect.min.y);
+		p += GET4(p, m->rect.max.x);
+		p += GET4(p, m->rect.max.y);
 		break;
 	}
-	return nn;
+	if(p-buf != n)
+		sysfatal("convM2W: message size mismatch");
+	return n;
 }
 
 int
@@ -328,8 +363,8 @@ readwsysmsg(int fd, uchar *buf, uint nbuf)
 		return -1;
 	if(readn(fd, buf, 4) != 4)
 		return -1;
-	GET(buf, n);
-	if(n > nbuf)
+	GET4(buf, n);
+	if(n<6 || n>nbuf)
 		return -1;
 	if(readn(fd, buf+4, n-4) != n-4)
 		return -1;

@@ -51,24 +51,12 @@ tag[1] Rtop
 
 tag[1] Tresize rect[4*4]
 tag[1] Rresize
+
 */
 
-
-#define PUT(p, x) \
-	(p)[0] = ((x) >> 24)&0xFF, \
-	(p)[1] = ((x) >> 16)&0xFF, \
-	(p)[2] = ((x) >> 8)&0xFF, \
-	(p)[3] = (x)&0xFF
-
-#define GET(p, x) \
-	((x) = (u32int)(((p)[0] << 24) | ((p)[1] << 16) | ((p)[2] << 8) | ((p)[3])))
-
-#define PUT2(p, x) \
-	(p)[0] = ((x) >> 8)&0xFF, \
-	(p)[1] = (x)&0xFF
-
-#define GET2(p, x) \
-	((x) = (((p)[0] << 8) | ((p)[1])))
+#define WMSGLEN4(p) \
+	(((u32int)(p)[0]<<24) | ((u32int)(p)[1]<<16) | \
+		((u32int)(p)[2]<<8) | (u32int)(p)[3])
 
 enum {
 	Rerror = 1,

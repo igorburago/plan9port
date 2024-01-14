@@ -156,41 +156,39 @@ _displaymux(Display *d)
 static int
 drawsend(Mux *mux, void *vmsg)
 {
-	int n;
 	uchar *msg;
 	Display *d;
 
 	msg = vmsg;
-	GET(msg, n);
 	d = mux->aux;
-	return write(d->srvfd, msg, n);
+	return write(d->srvfd, msg, WMSGLEN4(msg));
 }
 
 static int
 _drawrecv(Mux *mux, int canblock, void **vp)
 {
 	int n;
-	uchar buf[4], *p;
+	uchar lenbuf[4], *buf;
 	Display *d;
 
 	d = mux->aux;
 	*vp = nil;
 	if(!canblock && !canreadfd(d->srvfd))
 		return 0;
-	if((n=readn(d->srvfd, buf, 4)) != 4)
+	if(readn(d->srvfd, lenbuf, 4) != 4)
 		return 1;
-	GET(buf, n);
-	p = malloc(n);
-	if(p == nil){
+	n = WMSGLEN4(lenbuf);
+	buf = malloc(n);
+	if(buf == nil){
 		fprint(2, "out of memory allocating %d in drawrecv\n", n);
 		return 1;
 	}
-	memmove(p, buf, 4);
-	if(readn(d->srvfd, p+4, n-4) != n-4){
-		free(p);
+	memmove(buf, lenbuf, 4);
+	if(readn(d->srvfd, buf+4, n-4) != n-4){
+		free(buf);
 		return 1;
 	}
-	*vp = p;
+	*vp = buf;
 	return 1;
 }
 
@@ -233,7 +231,7 @@ static int
 displayrpc(Display *d, Wsysmsg *tx, Wsysmsg *rx, void **freep)
 {
 	int n, nn;
-	void *tpkt, *rpkt;
+	uchar *tpkt, *rpkt;
 
 	n = sizeW2M(tx);
 	tpkt = malloc(n);
@@ -278,7 +276,7 @@ displayrpc(Display *d, Wsysmsg *tx, Wsysmsg *rx, void **freep)
 		werrstr("muxrpc: %r");
 		return -1;
 	}
-	GET((uchar*)rpkt, n);
+	n = WMSGLEN4(rpkt);
 	nn = convM2W(rpkt, n, rx);
 	if(nn != n){
 		free(rpkt);

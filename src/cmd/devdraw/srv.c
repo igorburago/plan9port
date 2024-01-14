@@ -136,35 +136,34 @@ static void
 serveproc(void *v)
 {
 	Client *c;
-	uchar buf[4], *mbuf;
-	int nmbuf, n, nn;
+	uchar lenbuf[4], *buf;
+	int nbuf, n;
 	Wsysmsg m;
 
 	c = v;
-	mbuf = nil;
-	nmbuf = 0;
-	while((n = read(c->rfd, buf, 4)) == 4){
-		GET(buf, n);
-		if(n > nmbuf){
-			free(mbuf);
-			mbuf = malloc(4+n);
-			if(mbuf == nil)
+	buf = nil;
+	nbuf = 0;
+	while((n = read(c->rfd, lenbuf, 4)) == 4){
+		n = WMSGLEN4(lenbuf);
+		if(n > nbuf){
+			free(buf);
+			buf = malloc(n);
+			if(buf == nil)
 				sysfatal("out of memory");
-			nmbuf = n;
+			nbuf = n;
 		}
-		memmove(mbuf, buf, 4);
-		nn = readn(c->rfd, mbuf+4, n-4);
-		if(nn != n-4) {
+		memmove(buf, lenbuf, 4);
+		if(readn(c->rfd, buf+4, n-4) != n-4){
 			fprint(2, "serveproc: eof during message\n");
 			break;
 		}
 
 		/* pick off messages one by one */
-		if(convM2W(mbuf, nn+4, &m) <= 0) {
+		if(convM2W(buf, n, &m) <= 0){
 			fprint(2, "serveproc: cannot convert message\n");
 			break;
 		}
-		if(trace) fprint(2, "%ud [%d] <- %W\n", nsec()/1000000, threadid(), &m);
+		if(trace) fprint(2, "%lld [%d] <- %W\n", nsec()/1000000, threadid(), &m);
 		runmsg(c, &m);
 	}
 
@@ -334,7 +333,7 @@ replymsg(Client *c, Wsysmsg *m)
 	if(m->type%2 == 0)
 		m->type++;
 
-	if(trace) fprint(2, "%ud [%d] -> %W\n", nsec()/1000000, threadid(), m);
+	if(trace) fprint(2, "%lld [%d] -> %W\n", nsec()/1000000, threadid(), m);
 	/* copy to output buffer */
 	n = sizeW2M(m);
 
