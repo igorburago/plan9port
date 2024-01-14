@@ -54,70 +54,73 @@ tag[1] Rresize
 
 */
 
+typedef struct Wsysmsg	Wsysmsg;
+
 #define WMSGLEN4(p) \
 	(((u32int)(p)[0]<<24) | ((u32int)(p)[1]<<16) | \
 		((u32int)(p)[2]<<8) | (u32int)(p)[3])
 
-enum {
-	Rerror = 1,
-	Trdmouse = 2,
+enum
+{
+	Rerror		= 1,
+	Trdmouse	= 2,
 	Rrdmouse,
-	Tmoveto = 4,
+	Tmoveto		= 4,
 	Rmoveto,
-	Tcursor = 6,
+	Tcursor		= 6,
 	Rcursor,
-	Tbouncemouse = 8,
+	Tbouncemouse	= 8,
 	Rbouncemouse,
-	Trdkbd = 10,
+	Trdkbd		= 10,
 	Rrdkbd,
-	Tlabel = 12,
+	Tlabel		= 12,
 	Rlabel,
-	Tinit = 14,
+	Tinit		= 14,
 	Rinit,
-	Trdsnarf = 16,
+	Trdsnarf	= 16,
 	Rrdsnarf,
-	Twrsnarf = 18,
+	Twrsnarf	= 18,
 	Rwrsnarf,
-	Trddraw = 20,
+	Trddraw		= 20,
 	Rrddraw,
-	Twrdraw = 22,
+	Twrdraw		= 22,
 	Rwrdraw,
-	Ttop = 24,
+	Ttop		= 24,
 	Rtop,
-	Tresize = 26,
+	Tresize		= 26,
 	Rresize,
-	Tcursor2 = 28,
+	Tcursor2	= 28,
 	Rcursor2,
-	Tctxt = 30,
+	Tctxt		= 30,
 	Rctxt,
-	Trdkbd4 = 32,
+	Trdkbd4		= 32,
 	Rrdkbd4,
-	Tmax,
+	Tmax
 };
 
-enum {
+enum
+{
 	MAXWMSG = 4*1024*1024
 };
 
-typedef struct Wsysmsg Wsysmsg;
 struct Wsysmsg
 {
-	uchar type;
-	uchar tag;
-	Mouse mouse;
-	int resized;
-	Cursor cursor;
-	Cursor2 cursor2;
-	int arrowcursor;
-	Rune rune;
-	char *winsize;
-	char *label;
-	char *snarf;
-	char *error;
-	char *id;
-	uchar *data;
-	uint count;
-	Rectangle rect;
+	uchar		type;
+	uchar		tag;
+	Mouse		mouse;
+	int		resized;
+	Cursor		cursor;
+	Cursor2		cursor2;
+	int		arrowcursor;
+	Rune		rune;
+	char		*winsize;
+	char		*label;
+	char		*snarf;
+	char		*error;
+	char		*id;
+	uchar		*data;
+	uint		count;
+	Rectangle	rect;
 };
 
 uint	convW2M(Wsysmsg*, uchar*, uint);
