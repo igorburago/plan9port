@@ -178,7 +178,6 @@ rpc_shutdown(void)
 @interface DrawView : NSView<NSTextInputClient,NSWindowDelegate>
 @property (nonatomic, assign) Client *client;
 @property (nonatomic, retain) DrawLayer *dlayer;
-@property (nonatomic, retain) NSWindow *win;
 @property (nonatomic, retain) NSCursor *currentCursor;
 @property (nonatomic, assign) Memimage *img;
 
@@ -297,9 +296,8 @@ rpc_attach(Client *c, char *label, char *winsize)
 
 	client->view = CFBridgingRetain(self);
 	self.client = client;
-	self.win = win;
 	self.currentCursor = nil;
-	[win setContentView:self];
+	[win setContentView:self];	/* also sets self.window to win */
 	[win setDelegate:self];
 	[self setWantsLayer:YES];
 	[self setLayerContentsRedrawPolicy:NSViewLayerContentsRedrawOnSetNeedsDisplay];
@@ -359,7 +357,7 @@ rpc_topwin(Client *c)
 
 - (void)topwin
 {
-	[self.win makeKeyAndOrderFront:nil];
+	[self.window makeKeyAndOrderFront:nil];
 	[NSApp activateIgnoringOtherApps:YES];
 }
 
@@ -473,7 +471,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 
 	p = NSMakePoint(-c->offset.x, -c->offset.y);
 	self.currentCursor = [[NSCursor alloc] initWithImage:i hotSpot:p];
-	[self.win invalidateCursorRectsForView:self];
+	[self.window invalidateCursorRectsForView:self];
 }
 
 - (void)initimg
@@ -504,7 +502,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 		textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
 		self.dlayer.texture = [self.dlayer.device newTextureWithDescriptor:textureDesc];
 
-		scale = self.win.backingScaleFactor;
+		scale = self.window.backingScaleFactor;
 		[self.dlayer setDrawableSize:size];
 		[self.dlayer setContentsScale:scale];
 
@@ -559,7 +557,7 @@ rpc_flush(Client *client, Rectangle r)
 
 		nr = NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r));
 		LOG(@"callsetNeedsDisplayInRect(%g, %g, %g, %g)", nr.origin.x, nr.origin.y, nr.size.width, nr.size.height);
-		nr = [self.win convertRectFromBacking:nr];
+		nr = [self.window convertRectFromBacking:nr];
 		LOG(@"setNeedsDisplayInRect(%g, %g, %g, %g)", nr.origin.x, nr.origin.y, nr.size.width, nr.size.height);
 		[self.dlayer setNeedsDisplayInRect:nr];
 
@@ -629,7 +627,7 @@ rpc_resizewindow(Client *c, Rectangle r)
 		NSSize s;
 
 		s = [view convertSizeFromBacking:NSMakeSize(Dx(r), Dy(r))];
-		[view.win setContentSize:s];
+		[view.window setContentSize:s];
 	});
 }
 
@@ -857,11 +855,11 @@ rpc_setmouse(Client *c, Point p)
 		NSPoint q;
 
 		LOG(@"setmouse(%d,%d)", p.x, p.y);
-		q = [self.win convertPointFromBacking:NSMakePoint(p.x, p.y)];
+		q = [self.window convertPointFromBacking:NSMakePoint(p.x, p.y)];
 		LOG(@"(%g, %g) <- fromBacking", q.x, q.y);
 		q = [self convertPoint:q toView:nil];
 		LOG(@"(%g, %g) <- toWindow", q.x, q.y);
-		q = [self.win convertPointToScreen:q];
+		q = [self.window convertPointToScreen:q];
 		LOG(@"(%g, %g) <- toScreen", q.x, q.y);
 		/*
 		 * Quartz has the origin of the "global display coordinate space"
