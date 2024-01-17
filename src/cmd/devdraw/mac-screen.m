@@ -67,12 +67,12 @@ static ClientImpl macimpl =
 @interface AppDelegate : NSObject<NSApplicationDelegate>
 @end
 
-static AppDelegate *myApp = NULL;
+static AppDelegate *myApp;
 
 void
 gfx_main(void)
 {
-	if(client0)
+	if(client0 != nil)
 		setprocname(argv0);
 
 	@autoreleasepool{
@@ -104,14 +104,14 @@ rpc_shutdown(void)
 	[sm addItemWithTitle:@"Hide" action:@selector(hide:) keyEquivalent:@"h"];
 	[sm addItemWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
 	m = [NSMenu new];
-	[m addItemWithTitle:@"DEVDRAW" action:NULL keyEquivalent:@""];
+	[m addItemWithTitle:@"DEVDRAW" action:nil keyEquivalent:@""];
 	[m setSubmenu:sm forItem:[m itemWithTitle:@"DEVDRAW"]];
 	[NSApp setMainMenu:m];
 
 	d = [[NSData alloc] initWithBytes:glenda_png length:(sizeof glenda_png)];
 	i = [[NSImage alloc] initWithData:d];
 	[NSApp setApplicationIconImage:i];
-	[[NSApp dockTile] display];
+	[NSApp.dockTile display];
 
 	gfx_started();
 }
@@ -134,8 +134,12 @@ rpc_shutdown(void)
 	LOG(@"display query drawable");
 
 	@autoreleasepool{
-		id<CAMetalDrawable> drawable = [self nextDrawable];
-		if(!drawable){
+		id<CAMetalDrawable> drawable;
+		id<MTLCommandBuffer> cbuf;
+		id<MTLBlitCommandEncoder> blit;
+
+		drawable = self.nextDrawable;
+		if(drawable == nil){
 			LOG(@"display couldn't get drawable");
 			[self setNeedsDisplay];
 			return;
@@ -143,8 +147,8 @@ rpc_shutdown(void)
 
 		LOG(@"display got drawable");
 
-		id<MTLCommandBuffer> cbuf = [self.cmd commandBuffer];
-		id<MTLBlitCommandEncoder> blit = [cbuf blitCommandEncoder];
+		cbuf = [self.cmd commandBuffer];
+		blit = [cbuf blitCommandEncoder];
 		[blit copyFromTexture:self.texture
 			sourceSlice:0
 			sourceLevel:0
@@ -158,10 +162,10 @@ rpc_shutdown(void)
 
 		[cbuf presentDrawable:drawable];
 		drawable = nil;
-		[cbuf addCompletedHandler:^(id<MTLCommandBuffer> cmdBuff){
-			if(cmdBuff.error)
+		[cbuf addCompletedHandler:^(id<MTLCommandBuffer> b){
+			if(b.error != nil)
 				NSLog(@"command buffer finished with error: %@",
-					cmdBuff.error.localizedDescription);
+					b.error.localizedDescription);
 			else
 				LOG(@"command buffer finishes present drawable");
 		}];
@@ -233,7 +237,9 @@ rpc_attach(Client *c, char *label, char *winsize)
 	c->impl = &macimpl;
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		@autoreleasepool{
-			DrawView *view = [[DrawView new] attach:c winsize:winsize label:label];
+			DrawView *view;
+
+			view = [[DrawView new] attach:c winsize:winsize label:label];
 			[view initimg];
 		}
 	});
@@ -242,43 +248,46 @@ rpc_attach(Client *c, char *label, char *winsize)
 
 - (id)attach:(Client*)client winsize:(char*)winsize label:(char*)label
 {
-	NSRect r, sr;
+	NSWindowStyleMask winstyle;
+	NSRect sr, r;
+	NSWindow *win;
 	Rectangle wr;
-	int set;
-	char *s;
-	NSArray *allDevices;
+	int haspos;
+	NSArray<id<MTLDevice>> *devices;
+	id<MTLDevice> device, d;
+	DrawLayer *layer;
+	CALayer *stub;
 
-	NSWindowStyleMask Winstyle = NSWindowStyleMaskTitled
-		| NSWindowStyleMaskClosable
-		| NSWindowStyleMaskMiniaturizable
-		| NSWindowStyleMaskResizable;
+	winstyle = NSWindowStyleMaskClosable |
+		NSWindowStyleMaskMiniaturizable |
+		NSWindowStyleMaskResizable;
+	if(label!=nil && *label!='\0')
+		winstyle |= NSWindowStyleMaskTitled;
 
-	if(label == nil || *label == '\0')
-		Winstyle &= ~NSWindowStyleMaskTitled;
+	sr = NSScreen.mainScreen.frame;
+	r = NSScreen.mainScreen.visibleFrame;
 
-	s = winsize;
-	sr = [[NSScreen mainScreen] frame];
-	r = [[NSScreen mainScreen] visibleFrame];
-
-	LOG(@"makewin(%s)", s);
-	if(s==nil || *s=='\0' || parsewinsize(s, &wr, &set)<0){
+	LOG(@"makewin(%s)", winsize);
+	if(winsize==nil || *winsize=='\0'
+	|| parsewinsize(winsize, &wr, &haspos)<0){
 		wr = Rect(0, 0, sr.size.width*2/3, sr.size.height*2/3);
-		set = 0;
+		haspos = 0;
 	}
 
 	r.origin.x = wr.min.x;
 	r.origin.y = sr.size.height-wr.max.y;	/* winsize is top-left-based */
 	r.size.width = fmin(Dx(wr), r.size.width);
 	r.size.height = fmin(Dy(wr), r.size.height);
-	r = [NSWindow contentRectForFrameRect:r styleMask:Winstyle];
+	r = [NSWindow contentRectForFrameRect:r styleMask:winstyle];
 
-	NSWindow *win = [[NSWindow alloc]
+	win = [[NSWindow alloc]
 		initWithContentRect:r
-		styleMask:Winstyle
-		backing:NSBackingStoreBuffered defer:NO];
+		styleMask:winstyle
+		backing:NSBackingStoreBuffered
+		defer:NO];
 	[win setTitle:@"devdraw"];
 
-	if(!set)
+	if(!haspos)
 		[win center];
 	[win setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
 	[win setContentMinSize:NSMakeSize(64,64)];
@@ -295,17 +304,17 @@ rpc_attach(Client *c, char *label, char *winsize)
 	[self setWantsLayer:YES];
 	[self setLayerContentsRedrawPolicy:NSViewLayerContentsRedrawOnSetNeedsDisplay];
 
-	id<MTLDevice> device = nil;
-	allDevices = MTLCopyAllDevices();
-	for(id mtlDevice in allDevices)
-		if([mtlDevice isLowPower] && ![mtlDevice isRemovable]){
-			device = mtlDevice;
+	device = nil;
+	devices = MTLCopyAllDevices();
+	for(d in devices)
+		if(d.isLowPower && !d.isRemovable){
+			device = d;
 			break;
 		}
-	if(!device)
+	if(device == nil)
 		device = MTLCreateSystemDefaultDevice();
 
-	DrawLayer *layer = (DrawLayer*)[self layer];
+	layer = (DrawLayer*)self.layer;
 	self.dlayer = layer;
 	layer.device = device;
 	layer.cmd = [device newCommandQueue];
@@ -319,7 +328,7 @@ rpc_attach(Client *c, char *label, char *winsize)
 	 * without this code if you enter full screen with Cmd-F, the screen
 	 * goes black until the first mouse click.
 	 */
-	CALayer *stub = [CALayer layer];
+	stub = [CALayer layer];
 	stub.frame = CGRectMake(0, 0, 1, 1);
 	[stub setNeedsDisplay];
 	[layer addSublayer:stub];
@@ -340,7 +349,9 @@ rpc_attach(Client *c, char *label, char *winsize)
 static void
 rpc_topwin(Client *c)
 {
-	DrawView *view = (__bridge DrawView*)c->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)c->view;
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		[view topwin];
 	});
@@ -360,7 +371,9 @@ rpc_topwin(Client *c)
 static void
 rpc_setlabel(Client *client, char *label)
 {
-	DrawView *view = (__bridge DrawView*)client->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)client->view;
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		[view setlabel:label];
 	});
@@ -373,10 +386,12 @@ rpc_setlabel(Client *client, char *label)
 		return;
 
 	@autoreleasepool{
-		NSString *s = [[NSString alloc] initWithUTF8String:label];
-		[self.win setTitle:s];
-		if(client0)
-			[[NSApp dockTile] setBadgeLabel:s];
+		NSString *s;
+
+		s = [[NSString alloc] initWithUTF8String:label];
+		[self.window setTitle:s];
+		if(client0 != nil)
+			[NSApp.dockTile setBadgeLabel:s];
 	}
 }
 
@@ -388,7 +403,9 @@ rpc_setlabel(Client *client, char *label)
 static void
 rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 {
-	DrawView *view = (__bridge DrawView*)client->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)client->view;
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		[view setcursor:c cursor2:c2];
 	});
@@ -396,16 +413,16 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 
 - (void)setcursor:(Cursor*)c cursor2:(Cursor2*)c2
 {
-	if(!c){
-		c = &bigarrow;
-		c2 = &bigarrow2;
-	}
-
 	NSBitmapImageRep *r, *r2;
 	NSImage *i;
 	NSPoint p;
 	uchar *plane[5], *plane2[5];
 	uint b;
+
+	if(c == nil){
+		c = &bigarrow;
+		c2 = &bigarrow2;
+	}
 
 	r = [[NSBitmapImageRep alloc]
 		initWithBitmapDataPlanes:nil
@@ -443,10 +460,10 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 
 	static BOOL debug = NO;
 	if(debug){
-		NSData *data = [r representationUsingType: NSBitmapImageFileTypeBMP properties: @{}];
-		[data writeToFile: @"/tmp/r.bmp" atomically: NO];
-		data = [r2 representationUsingType: NSBitmapImageFileTypeBMP properties: @{}];
-		[data writeToFile: @"/tmp/r2.bmp" atomically: NO];
+		[[r representationUsingType:NSBitmapImageFileTypeBMP properties:@{}]
+			writeToFile:@"/tmp/r.bmp" atomically:NO];
+		[[r2 representationUsingType:NSBitmapImageFileTypeBMP properties:@{}]
+			writeToFile:@"/tmp/r2.bmp" atomically:NO];
 		debug = NO;
 	}
 
@@ -466,7 +483,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 		NSSize size;
 		MTLTextureDescriptor *textureDesc;
 
-		size = [self convertSizeToBacking:[self bounds].size];
+		size = [self convertSizeToBacking:self.bounds.size];
 		self.client->mouserect = Rect(0, 0, size.width, size.height);
 
 		LOG(@"initimg %.0f %.0f", size.width, size.height);
@@ -487,7 +504,7 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 		textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
 		self.dlayer.texture = [self.dlayer.device newTextureWithDescriptor:textureDesc];
 
-		scale = [self.win backingScaleFactor];
+		scale = self.win.backingScaleFactor;
 		[self.dlayer setDrawableSize:size];
 		[self.dlayer setContentsScale:scale];
 
@@ -509,7 +526,9 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 static void
 rpc_flush(Client *client, Rectangle r)
 {
-	DrawView *view = (__bridge DrawView*)client->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)client->view;
 	dispatch_async(dispatch_get_main_queue(), ^(void){
 		[view flush:r];
 	});
@@ -518,6 +537,9 @@ rpc_flush(Client *client, Rectangle r)
 - (void)flush:(Rectangle)r
 {
 	@autoreleasepool{
+		NSRect nr;
+		dispatch_time_t time;
+
 		if(!rectclip(&r, Rect(0, 0, self.dlayer.texture.width, self.dlayer.texture.height))
 		|| !rectclip(&r, self.img->r))
 			return;
@@ -535,9 +557,7 @@ rpc_flush(Client *client, Rectangle r)
 			bytesPerRow:self.img->width*sizeof(u32int)];
 		qunlock(&drawlk);
 
-		NSRect nr = NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r));
-		dispatch_time_t time;
-
+		nr = NSMakeRect(r.min.x, r.min.y, Dx(r), Dy(r));
 		LOG(@"callsetNeedsDisplayInRect(%g, %g, %g, %g)", nr.origin.x, nr.origin.y, nr.size.width, nr.size.height);
 		nr = [self.win convertRectFromBacking:nr];
 		LOG(@"setNeedsDisplayInRect(%g, %g, %g, %g)", nr.origin.x, nr.origin.y, nr.size.width, nr.size.height);
@@ -561,7 +581,9 @@ rpc_flush(Client *client, Rectangle r)
 static void
 rpc_resizeimg(Client *c)
 {
-	DrawView *view = (__bridge DrawView*)c->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)c->view;
 	dispatch_async(dispatch_get_main_queue(), ^(void){
 		[view resizeimg];
 	});
@@ -575,20 +597,20 @@ rpc_resizeimg(Client *c)
 
 - (void)windowDidResize:(NSNotification*)notif
 {
-	if(![self inLiveResize] && self.img)
+	if(!self.inLiveResize && self.img!=nil)
 		[self resizeimg];
 }
 - (void)viewDidEndLiveResize
 {
 	[super viewDidEndLiveResize];
-	if(self.img)
+	if(self.img != nil)
 		[self resizeimg];
 }
 
 - (void)viewDidChangeBackingProperties
 {
 	[super viewDidChangeBackingProperties];
-	if(self.img)
+	if(self.img != nil)
 		[self resizeimg];
 }
 
@@ -599,9 +621,10 @@ rpc_resizeimg(Client *c)
 static void
 rpc_resizewindow(Client *c, Rectangle r)
 {
-	DrawView *view = (__bridge DrawView*)c->view;
+	DrawView *view;
 
 	LOG(@"resizewindow %d %d %d %d", r.min.x, r.min.y, Dx(r), Dy(r));
+	view = (__bridge DrawView*)c->view;
 	dispatch_async(dispatch_get_main_queue(), ^(void){
 		NSSize s;
 
@@ -722,8 +745,8 @@ scrolldeltatoint(CGFloat delta)
 
 - (void)magnifyWithEvent:(NSEvent*)e
 {
-	if(fabs([e magnification]) > 0.02)
-		[[self window] toggleFullScreen:nil];
+	if(fabs(e.magnification) > 0.02)
+		[self.window toggleFullScreen:nil];
 }
 
 - (void)touchesBeganWithEvent:(NSEvent*)e
@@ -766,7 +789,7 @@ mousebuttons(void)
 	NSUInteger eb;
 	int b;
 
-	eb = [NSEvent pressedMouseButtons];
+	eb = NSEvent.pressedMouseButtons;
 	b = 0;
 	if(eb & 1)
 		b |= Mbutton1;
@@ -784,7 +807,7 @@ mousebuttons(void)
 
 	b = mouseswap(mousebuttons());
 	if(b == Mbutton1){
-		m = [e modifierFlags];
+		m = e.modifierFlags;
 		if(m & NSEventModifierFlagOption){
 			gfx_abortcompose(self.client);
 			b = Mbutton2;
@@ -803,7 +826,7 @@ mousebuttons(void)
 {
 	NSPoint p;
 
-	p = [self.window mouseLocationOutsideOfEventStream];
+	p = self.window.mouseLocationOutsideOfEventStream;
 	p = [self.window convertPointToBacking:p];
 	p.y = self.client->mouserect.max.y - p.y;
 	//LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
@@ -820,7 +843,9 @@ mousebuttons(void)
 static void
 rpc_setmouse(Client *c, Point p)
 {
-	DrawView *view = (__bridge DrawView*)c->view;
+	DrawView *view;
+
+	view = (__bridge DrawView*)c->view;
 	dispatch_async(dispatch_get_main_queue(), ^(void){
 		[view setmouse:p];
 	});
@@ -869,6 +894,8 @@ rpc_setmouse(Client *c, Point p)
 	replacementRange:(NSRange)rRange
 {
 	NSString *str;
+	NSUInteger i;
+	NSInteger l;
 
 	LOG(@"setMarkedText: %@ (%ld, %ld) (%ld, %ld)", string,
 		sRange.location, sRange.length,
@@ -898,13 +925,12 @@ rpc_setmouse(Client *c, Point p)
 	_selectedRange.location = rRange.location + sRange.location;
 	_selectedRange.length = sRange.length;
 
-	if(_tmpText.length){
-		uint i;
+	if(_tmpText.length != 0){
 		LOG(@"text length %ld", _tmpText.length);
 		for(i=0; i<=_tmpText.length; i++){
 			if(i == _markedRange.location)
 				gfx_keystroke(self.client, '[');
-			if(_selectedRange.length){
+			if(_selectedRange.length != 0){
 				if(i == _selectedRange.location)
 					gfx_keystroke(self.client, '{');
 				if(i == NSMaxRange(_selectedRange))
@@ -915,11 +941,10 @@ rpc_setmouse(Client *c, Point p)
 			if(i < _tmpText.length)
 				gfx_keystroke(self.client, [_tmpText characterAtIndex:i]);
 		}
-		int l;
 		l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
 			(_selectedRange.length > 0);
 		LOG(@"move left %d", l);
-		for(i=0; i<l; i++)
+		while(l-- > 0)
 			gfx_keystroke(self.client, Kleft);
 	}
 
@@ -930,11 +955,11 @@ rpc_setmouse(Client *c, Point p)
 
 - (void)unmarkText
 {
-	//NSUInteger i;
 	NSUInteger len;
+	//NSUInteger i;
 
 	LOG(@"unmarkText");
-	len = [_tmpText length];
+	len = _tmpText.length;
 	//for(i=0; i<len; i++)
 	//	gfx_keystroke(self.client, [_tmpText characterAtIndex:i]);
 	[_tmpText deleteCharactersInRange:NSMakeRange(0, len)];
@@ -956,13 +981,13 @@ rpc_setmouse(Client *c, Point p)
 
 	LOG(@"attributedSubstringForProposedRange: (%ld, %ld) (%ld, %ld)",
 		r.location, r.length, actualRange->location, actualRange->length);
-	sr = NSMakeRange(0, [_tmpText length]);
+	sr = NSMakeRange(0, _tmpText.length);
 	sr = NSIntersectionRange(sr, r);
-	if(actualRange)
+	if(actualRange != nil)
 		*actualRange = sr;
 	LOG(@"use range: %ld, %ld", sr.location, sr.length);
 	s = nil;
-	if(sr.length)
+	if(sr.length != 0)
 		s = [[NSAttributedString alloc]
 			initWithString:[_tmpText substringWithRange:sr]];
 	LOG(@"	return %@", s);
@@ -995,9 +1020,9 @@ rpc_setmouse(Client *c, Point p)
 {
 	LOG(@"firstRectForCharacterRange: (%ld, %ld) (%ld, %ld)",
 		r.location, r.length, actualRange->location, actualRange->length);
-	if(actualRange)
+	if(actualRange != nil)
 		*actualRange = r;
-	return [[self window] convertRectToScreen:_lastInputRect];
+	return [self.window convertRectToScreen:_lastInputRect];
 }
 
 - (void)doCommandBySelector:(SEL)s
@@ -1008,11 +1033,11 @@ rpc_setmouse(Client *c, Point p)
 
 	LOG(@"doCommandBySelector (%@)", NSStringFromSelector(s));
 
-	e = [NSApp currentEvent];
-	c = [[e characters] characterAtIndex:0];
+	e = NSApp.currentEvent;
+	c = [e.characters characterAtIndex:0];
 	k = keycvt(c);
 	LOG(@"keyDown: character0: 0x%x -> 0x%x", c, k);
-	m = [e modifierFlags];
+	m = e.modifierFlags;
 
 	if(m & NSEventModifierFlagCommand){
 		if((m&NSEventModifierFlagShift) && 'a'<=k && k<='z')
@@ -1036,7 +1061,7 @@ rpc_setmouse(Client *c, Point p)
 
 - (void)enlargeLastInputRect:(NSRect)r
 {
-	r.origin.y = [self bounds].size.height - r.origin.y - r.size.height;
+	r.origin.y = self.bounds.size.height - r.origin.y - r.size.height;
 	_lastInputRect = NSUnionRect(_lastInputRect, r);
 	LOG(@"update last input rect (%g, %g, %g, %g)",
 		_lastInputRect.origin.x, _lastInputRect.origin.y,
@@ -1045,23 +1070,23 @@ rpc_setmouse(Client *c, Point p)
 
 - (void)clearInput
 {
-	if(_tmpText.length){
-		uint i;
-		int l;
-		l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
-			(_selectedRange.length > 0);
-		LOG(@"move right %d", l);
-		for(i = 0; i < l; ++i)
-			gfx_keystroke(self.client, Kright);
-		l = _tmpText.length+2+2*(_selectedRange.length > 0);
-		LOG(@"backspace %d", l);
-		for(uint i = 0; i < l; ++i)
-			gfx_keystroke(self.client, Kbs);
-	}
+	NSInteger l;
+
+	if(_tmpText.length == 0)
+		return;
+	l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
+		(_selectedRange.length > 0);
+	LOG(@"move right %d", l);
+	while(l-- > 0)
+		gfx_keystroke(self.client, Kright);
+	l = _tmpText.length + 2 + 2*(_selectedRange.length>0);
+	LOG(@"backspace %d", l);
+	while(l-- > 0)
+		gfx_keystroke(self.client, Kbs);
 }
 
 - (NSApplicationPresentationOptions)window:(id)arg
-	willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+	willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)o
 {
 	/*
 	 * The default for full-screen is to auto-hide the dock and menu bar,
@@ -1072,11 +1097,10 @@ rpc_setmouse(Client *c, Point p)
 	 * far enough off the bottom of the screen the dock still unhides.
 	 * That's OK.
 	 */
-	NSApplicationPresentationOptions o;
-
-	o = proposedOptions;
-	o &= ~(NSApplicationPresentationAutoHideDock | NSApplicationPresentationAutoHideMenuBar);
-	o |= NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+	o &= ~NSApplicationPresentationAutoHideDock;
+	o &= ~NSApplicationPresentationAutoHideMenuBar;
+	o |= NSApplicationPresentationHideDock;
+	o |= NSApplicationPresentationHideMenuBar;
 	return o;
 }
 
@@ -1088,14 +1112,14 @@ rpc_setmouse(Client *c, Point p)
 	 * full screen on only one screen, so it's not great. The behavior from
 	 * the willUseFullScreenPresentationOptions seems to be enough for now.
 	 */
-	//[[NSApplication sharedApplication] setPresentationOptions:
-	//	NSApplicationPresentationHideMenuBar|NSApplicationPresentationHideDock];
+	//[NSApp setPresentationOptions:
+	//	NSApplicationPresentationHideMenuBar|
+	//	NSApplicationPresentationHideDock];
 }
 
 - (void)windowDidExitFullScreen:(NSNotification*)notif
 {
-	//[[NSApplication sharedApplication] setPresentationOptions:
-	//	NSApplicationPresentationDefault];
+	//[NSApp setPresentationOptions:NSApplicationPresentationDefault];
 }
 @end
 
@@ -1199,10 +1223,13 @@ rpc_getsnarf(void)
 	ret = nil;
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		@autoreleasepool{
-			NSPasteboard *pb = [NSPasteboard generalPasteboard];
-			NSString *s = [pb stringForType:NSPasteboardTypeString];
-			if(s)
-				ret = strdup((char*)[s UTF8String]);
+			NSPasteboard *pb;
+			NSString *s;
+
+			pb = NSPasteboard.generalPasteboard;
+			s = [pb stringForType:NSPasteboardTypeString];
+			if(s != nil)
+				ret = strdup((char*)s.UTF8String);
 		}
 	});
 	return ret;
@@ -1220,9 +1247,13 @@ rpc_putsnarf(char *s)
 
 	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		@autoreleasepool{
-			NSArray *t = [NSArray arrayWithObject:NSPasteboardTypeString];
-			NSPasteboard *pb = [NSPasteboard generalPasteboard];
-			NSString *str = [[NSString alloc] initWithUTF8String:s];
+			NSArray *t;
+			NSPasteboard *pb;
+			NSString *str;
+
+			t = [NSArray arrayWithObject:NSPasteboardTypeString];
+			pb = NSPasteboard.generalPasteboard;
+			str = [[NSString alloc] initWithUTF8String:s];
 			[pb declareTypes:t owner:nil];
 			[pb setString:str forType:NSPasteboardTypeString];
 		}
@@ -1304,36 +1335,44 @@ setprocname(const char *s)
 	typedef OSStatus (*LSSetApplicationInformationItemType)(
 		int, PrivateLSASN, CFStringRef, CFStringRef, CFDictionaryRef*);
 
-	static LSGetCurrentApplicationASNType ls_get_current_application_asn_func = NULL;
-	static LSSetApplicationInformationItemType ls_set_application_information_item_func = NULL;
-	static CFStringRef ls_display_name_key = NULL;
-	static bool did_symbol_lookup = false;
+	static LSGetCurrentApplicationASNType ls_get_current_application_asn_func;
+	static LSSetApplicationInformationItemType ls_set_application_information_item_func;
+	static CFStringRef ls_display_name_key;
+	static bool did_symbol_lookup;
+
+	/* Constant used by WebKit; what exactly it means is unknown. */
+	enum { magic_session_constant = -2 };
+
+	CFBundleRef launch_services_bundle;
+	CFStringRef *key_pointer;
+	ProcessSerialNumber psn;
+	PrivateLSASN asn;
+	CFStringRef process_name;
+	OSErr err;
 
 	if(!did_symbol_lookup){
 		did_symbol_lookup = true;
-		CFBundleRef launch_services_bundle = CFBundleGetBundleWithIdentifier(
+		launch_services_bundle = CFBundleGetBundleWithIdentifier(
 			CFSTR("com.apple.LaunchServices"));
-		if(!launch_services_bundle){
+		if(launch_services_bundle == nil){
 			fprint(2, "Failed to look up LaunchServices bundle\n");
 			return;
 		}
 
-		ls_get_current_application_asn_func =
-			(LSGetCurrentApplicationASNType)(CFBundleGetFunctionPointerForName(
-				launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN")));
-		if(!ls_get_current_application_asn_func)
+		ls_get_current_application_asn_func = CFBundleGetFunctionPointerForName(
+			launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN"));
+		if(ls_get_current_application_asn_func == nil)
 			fprint(2, "Could not find _LSGetCurrentApplicationASN\n");
 
-		ls_set_application_information_item_func =
-			(LSSetApplicationInformationItemType)(CFBundleGetFunctionPointerForName(
-				launch_services_bundle, CFSTR("_LSSetApplicationInformationItem")));
-		if(!ls_set_application_information_item_func)
+		ls_set_application_information_item_func = CFBundleGetFunctionPointerForName(
+			launch_services_bundle, CFSTR("_LSSetApplicationInformationItem"));
+		if(ls_set_application_information_item_func == nil)
 			fprint(2, "Could not find _LSSetApplicationInformationItem\n");
 
-		CFStringRef* key_pointer = (CFStringRef*)(CFBundleGetDataPointerForName(
-			launch_services_bundle, CFSTR("_kLSDisplayNameKey")));
-		ls_display_name_key = key_pointer ? *key_pointer : NULL;
-		if(!ls_display_name_key)
+		key_pointer = CFBundleGetDataPointerForName(launch_services_bundle,
+			CFSTR("_kLSDisplayNameKey"));
+		ls_display_name_key = key_pointer ? *key_pointer : nil;
+		if(ls_display_name_key == nil)
 			fprint(2, "Could not find _kLSDisplayNameKey\n");
 
 		/*
@@ -1344,7 +1383,6 @@ setprocname(const char *s)
 		 * and force a call to make sure the manager has been initialized and hence
 		 * the ports are opened.
 		 */
-		ProcessSerialNumber psn;
 		GetCurrentProcess(&psn);
 	}
 	if(!ls_get_current_application_asn_func
@@ -1352,15 +1390,12 @@ setprocname(const char *s)
 	|| !ls_display_name_key)
 		return;
 
-	CFStringRef process_name = CFStringCreateWithBytes(
-		nil, (uchar*)s, strlen(s), kCFStringEncodingUTF8, false);
+	process_name = CFStringCreateWithBytes(nil,
+		(uchar*)s, strlen(s), kCFStringEncodingUTF8, false);
 
-	PrivateLSASN asn = ls_get_current_application_asn_func();
-	/* Constant used by WebKit; what exactly it means is unknown. */
-	const int magic_session_constant = -2;
-	OSErr err = ls_set_application_information_item_func(
-		magic_session_constant, asn, ls_display_name_key,
-		process_name, NULL /* optional out param */);
+	asn = ls_get_current_application_asn_func();
+	err = ls_set_application_information_item_func(magic_session_constant,
+		asn, ls_display_name_key, process_name, nil /* optional out param */);
 	if(err != noErr)
 		fprint(2, "Call to set process name failed\n");
 }
