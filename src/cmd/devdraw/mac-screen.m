@@ -756,7 +756,13 @@ scrolldeltatoint(CGFloat delta)
 
 - (void)magnifyWithEvent:(NSEvent*)e
 {
-	if(fabs(e.magnification) > 0.02)
+	CGFloat thr, mag;
+	BOOL infull;
+
+	thr = 0.05;
+	mag = e.magnification;
+	infull = !!(self.window.styleMask & NSWindowStyleMaskFullScreen);
+	if(infull ? mag<=-thr : mag>=+thr)
 		[self.window toggleFullScreen:nil];
 }
 
