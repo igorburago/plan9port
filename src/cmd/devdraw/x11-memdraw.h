@@ -2,9 +2,9 @@
  * Structure pointed to by X field of Memimage
  */
 
-typedef struct Xmem Xmem;
-typedef struct Xprivate Xprivate;
-typedef struct Xwin Xwin;
+typedef struct Xmem	Xmem;
+typedef struct Xprivate	Xprivate;
+typedef struct Xwin	Xwin;
 
 enum
 {
@@ -15,18 +15,19 @@ struct Xmem
 {
 	int		pixmap;	/* pixmap id */
 	XImage		*xi;	/* local image */
-	int		dirty;	/* is the X server ahead of us?  */
+	int		dirty;	/* is the X server ahead of us? */
 	Rectangle	dirtyr;	/* which pixels? */
 	Rectangle	r;	/* size of image */
 };
 
-struct Xprivate {
+struct Xprivate
+{
 	u32int		chan;
 	XColormap	cmap;
 	XCursor		cursor;
 	XDisplay	*display;
-	int		fd;	/* of display */
-	int		depth;				/* of screen */
+	int		fd;		/* of display */
+	int		depth;		/* of screen */
 	XColor		map[256];
 	XColor		map7[128];
 	uchar		map7to8[128][2];
@@ -67,8 +68,10 @@ struct Xprivate {
 	int		kbuttons;
 	int		kstate;
 	int		altdown;
+	uint		mwarpserial;
+	uint		mwarpcount;
 
-	Xwin*	windows;
+	Xwin		*windows;
 };
 
 struct Client;
@@ -76,10 +79,10 @@ struct Client;
 struct Xwin
 {
 	XDrawable	drawable;
-	struct Client*	client;
-	
+	struct Client	*client;
+
 	Rectangle	newscreenr;
-	Memimage*	screenimage;
+	Memimage	*screenimage;
 	XDrawable	screenpm;
 	XDrawable	nextscreenpm;
 	Rectangle	screenr;
@@ -88,18 +91,18 @@ struct Xwin
 	int		fullscreen;
 	int		destroyed;
 
-	Xwin*	next;
+	Xwin		*next;
 };
 
-void xlock(void);
-void xunlock(void);
 extern Xprivate _x;
+void	xlock(void);
+void	xunlock(void);
 
-extern Memimage *_xallocmemimage(Rectangle, u32int, int);
-extern XImage	*_xallocxdata(Memimage*, Rectangle);
-extern void	_xdirtyxdata(Memimage*, Rectangle);
-extern void	_xfillcolor(Memimage*, Rectangle, u32int);
-extern void	_xfreexdata(Memimage*);
-extern XImage	*_xgetxdata(Memimage*, Rectangle);
-extern void	_xputxdata(Memimage*, Rectangle);
+extern Memimage*	_xallocmemimage(Rectangle, u32int, int);
+extern XImage*		_xallocxdata(Memimage*, Rectangle);
+extern void		_xdirtyxdata(Memimage*, Rectangle);
+extern void		_xfillcolor(Memimage*, Rectangle, u32int);
+extern void		_xfreexdata(Memimage*);
+extern XImage*		_xgetxdata(Memimage*, Rectangle);
+extern void		_xputxdata(Memimage*, Rectangle);
 
