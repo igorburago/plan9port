@@ -895,9 +895,9 @@ rpc_setmouse(Client *c, Point p)
 	NSUInteger i;
 	NSInteger l;
 
-	LOG(@"setMarkedText: %@ (%ld, %ld) (%ld, %ld)", string,
-		sRange.location, sRange.length,
-		rRange.location, rRange.length);
+	LOG(@"setMarkedText: %@ (%lu, %lu) (%lu, %lu)", string,
+		(ulong)sRange.location, (ulong)sRange.length,
+		(ulong)rRange.location, (ulong)rRange.length);
 
 	[self clearInput];
 
@@ -924,7 +924,7 @@ rpc_setmouse(Client *c, Point p)
 	_selectedRange.length = sRange.length;
 
 	if(_tmpText.length != 0){
-		LOG(@"text length %ld", _tmpText.length);
+		LOG(@"text length %lu", (ulong)_tmpText.length);
 		for(i=0; i<=_tmpText.length; i++){
 			if(i == _markedRange.location)
 				gfx_keystroke(self.client, '[');
@@ -941,14 +941,14 @@ rpc_setmouse(Client *c, Point p)
 		}
 		l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
 			(_selectedRange.length > 0);
-		LOG(@"move left %d", l);
+		LOG(@"move left %ld", (long)l);
 		while(l-- > 0)
 			gfx_keystroke(self.client, Kleft);
 	}
 
-	LOG(@"text: \"%@\"  (%ld,%ld)  (%ld,%ld)", _tmpText,
-		_markedRange.location, _markedRange.length,
-		_selectedRange.location, _selectedRange.length);
+	LOG(@"text: \"%@\"  (%lu,%lu)  (%lu,%lu)", _tmpText,
+		(ulong)_markedRange.location, (ulong)_markedRange.length,
+		(ulong)_selectedRange.location, (ulong)_selectedRange.length);
 }
 
 - (void)unmarkText
@@ -977,13 +977,14 @@ rpc_setmouse(Client *c, Point p)
 	NSRange sr;
 	NSAttributedString *s;
 
-	LOG(@"attributedSubstringForProposedRange: (%ld, %ld) (%ld, %ld)",
-		r.location, r.length, actualRange->location, actualRange->length);
+	LOG(@"attributedSubstringForProposedRange: (%lu, %lu) (%lu, %lu)",
+		(ulong)r.location, (ulong)r.length,
+		(ulong)actualRange->location, (ulong)actualRange->length);
 	sr = NSMakeRange(0, _tmpText.length);
 	sr = NSIntersectionRange(sr, r);
 	if(actualRange != nil)
 		*actualRange = sr;
-	LOG(@"use range: %ld, %ld", sr.location, sr.length);
+	LOG(@"use range: %lu, %lu", (ulong)sr.location, (ulong)sr.length);
 	s = nil;
 	if(sr.length != 0)
 		s = [[NSAttributedString alloc]
@@ -996,7 +997,8 @@ rpc_setmouse(Client *c, Point p)
 {
 	NSUInteger i, len;
 
-	LOG(@"insertText: %@ replacementRange: %ld, %ld", s, r.location, r.length);
+	LOG(@"insertText: %@ replacementRange: %lu, %lu",
+		s, (ulong)r.location, (ulong)r.length);
 
 	[self clearInput];
 
@@ -1016,8 +1018,9 @@ rpc_setmouse(Client *c, Point p)
 
 - (NSRect)firstRectForCharacterRange:(NSRange)r actualRange:(NSRangePointer)actualRange
 {
-	LOG(@"firstRectForCharacterRange: (%ld, %ld) (%ld, %ld)",
-		r.location, r.length, actualRange->location, actualRange->length);
+	LOG(@"firstRectForCharacterRange: (%lu, %lu) (%lu, %lu)",
+		(ulong)r.location, (ulong)r.length,
+		(ulong)actualRange->location, (ulong)actualRange->length);
 	if(actualRange != nil)
 		*actualRange = r;
 	return [self.window convertRectToScreen:_lastInputRect];
@@ -1074,11 +1077,11 @@ rpc_setmouse(Client *c, Point p)
 		return;
 	l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
 		(_selectedRange.length > 0);
-	LOG(@"move right %d", l);
+	LOG(@"move right %ld", (long)l);
 	while(l-- > 0)
 		gfx_keystroke(self.client, Kright);
 	l = _tmpText.length + 2 + 2*(_selectedRange.length>0);
-	LOG(@"backspace %d", l);
+	LOG(@"backspace %ld", (long)l);
 	while(l-- > 0)
 		gfx_keystroke(self.client, Kbs);
 }
