@@ -30,18 +30,15 @@ estrdup(char *s)
 }
 
 int
-timefmt(Fmt *f)
+timefmt(Fmt *fmt)
 {
-	Tm tm;
 	vlong ms;
+	Tm tm;
 
-	ms = nsec()/1000000;
-
+	ms = nsec()/1000/1000;
 	tm = *localtime(ms/1000);
-	fmtprint(f, "%02d:%02d:%02d.%03d",
-		tm.hour, tm.min, tm.sec,
-		(int)(ms%1000));
-	return 0;
+	return fmtprint(fmt, "%02d:%02d:%02d.%03d",
+		tm.hour, tm.min, tm.sec, (int)(ms%1000));
 }
 
 int

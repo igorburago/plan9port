@@ -1409,11 +1409,11 @@ timefmt(Fmt *fmt)
 {
 	static char *mon[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-	vlong ns;
+	vlong ms;
 	Tm tm;
-	ns = nsec();
-	tm = *localtime(time(0));
+
+	ms = nsec()/1000/1000;
+	tm = *localtime(ms/1000);
 	return fmtprint(fmt, "%s %2d %02d:%02d:%02d.%03d",
-		mon[tm.mon], tm.mday, tm.hour, tm.min, tm.sec,
-		(int)(ns%1000000000)/1000000);
+		mon[tm.mon], tm.mday, tm.hour, tm.min, tm.sec, (int)(ms%1000));
 }
