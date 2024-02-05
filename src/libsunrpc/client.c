@@ -6,19 +6,20 @@
 #include <thread.h>
 #include <sunrpc.h>
 
-typedef struct Out Out;
+typedef struct Out	Out;
+
 struct Out
 {
-	char err[ERRMAX];	/* error string */
-	Channel *creply;	/* send to finish rpc */
-	uchar *p;			/* pending request packet */
-	int n;				/* size of request */
-	ulong tag;			/* flush tag of pending request */
-	ulong xid;			/* xid of pending request */
-	ulong st;			/* first send time */
-	ulong t;			/* resend time */
-	int nresend;		/* number of resends */
-	SunRpc rpc;		/* response rpc */
+	char	err[ERRMAX];	/* error string */
+	Channel	*creply;	/* send to finish rpc */
+	uchar	*p;		/* pending request packet */
+	int	n;		/* size of request */
+	ulong	tag;		/* flush tag of pending request */
+	ulong	xid;		/* xid of pending request */
+	ulong	st;		/* first send time */
+	ulong	wt;		/* wait time until resend */
+	int	nresend;	/* number of resends */
+	SunRpc	rpc;		/* response rpc */
 };
 
 static void
@@ -133,7 +134,7 @@ twait(ulong rtt, int nresend)
 
 	t = rtt;
 	if(nresend <= 1)
-		{}
+		;
 	else if(nresend <= 3)
 		t *= 2;
 	else if(nresend <= 18)
@@ -142,7 +143,6 @@ twait(ulong rtt, int nresend)
 		t = 60*1000;
 	if(t > 60*1000)
 		t = 60*1000;
-
 	return t;
 }
 
@@ -206,8 +206,8 @@ rpcMuxThread(void *v)
 			}
 			o->st = msec();
 			o->nresend = 0;
-			o->t = o->st + twait(cli->rtt.avg, 0);
-if(cli->chatty) fprint(2, "send %lux %lud %lud\n", o->xid, o->st, o->t);
+			o->wt = twait(cli->rtt.avg, 0);
+if(cli->chatty) fprint(2, "send %lux %lud %lud\n", o->xid, o->st, o->st+o->wt);
 			out[nout++] = o;
 			a[1].op = CHANRCV;
 			break;
@@ -216,27 +216,27 @@ if(cli->chatty) fprint(2, "send %lux %lud %lud\n", o->xid, o->st, o->t);
 			t = msec();
 			for(i=0; i<nout; i++){
 				o = out[i];
-				if((int)(t - o->t) > 0){
-if(cli->chatty) fprint(2, "resend %lux %lud %lud\n", o->xid, t, o->t);
-					if(cli->maxwait && t - o->st >= cli->maxwait){
-						free(o->p);
-						o->p = nil;
-						strcpy(o->err, "timeout");
-						sendp(o->creply, 0);
-						out[i--] = out[--nout];
-						continue;
-					}
-					cli->nresend++;
-					o->nresend++;
-					o->t = t + twait(cli->rtt.avg, o->nresend);
-					if(write(cli->fd, o->p, o->n) != o->n){
-						free(o->p);
-						o->p = nil;
-						snprint(o->err, sizeof o->err, "rewrite: %r");
-						sendp(o->creply, 0);
-						out[i--] = out[--nout];
-						continue;
-					}
+				if(t-o->st < o->wt)
+					continue;
+if(cli->chatty) fprint(2, "resend %lux %lud %lud\n", o->xid, t, o->st+o->wt);
+				if(cli->maxwait>0 && t-o->st>=cli->maxwait){
+					free(o->p);
+					o->p = nil;
+					strcpy(o->err, "timeout");
+					sendp(o->creply, 0);
+					out[i--] = out[--nout];
+					continue;
+				}
+				cli->nresend++;
+				o->nresend++;
+				o->wt = (t - o->st) + twait(cli->rtt.avg, o->nresend);
+				if(write(cli->fd, o->p, o->n) != o->n){
+					free(o->p);
+					o->p = nil;
+					snprint(o->err, sizeof o->err, "rewrite: %r");
+					sendp(o->creply, 0);
+					out[i--] = out[--nout];
+					continue;
 				}
 			}
 			/* stop ticking if no work; rpcchan will turn it back on */
