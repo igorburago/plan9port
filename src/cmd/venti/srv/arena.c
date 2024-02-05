@@ -805,7 +805,7 @@ loadcig(Arena *arena)
 	ArenaCIG *cig;
 	ClumpInfo *ci;
 	u64int offset;
-	int ms;
+	uint ms;
 
 	if(arena->cig || arena->ncig < 0)
 		return;

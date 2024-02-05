@@ -147,7 +147,8 @@ DBlock*
 _getdblock(Part *part, u64int addr, int mode, int load)
 {
 	DBlock *b;
-	u32int h, size, ms;
+	u32int h, size;
+	uint ms;
 
 	ms = 0;
 	trace(TraceBlock, "getdblock enter %s 0x%llux", part->name, addr);

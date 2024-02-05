@@ -463,7 +463,8 @@ insertscore(u8int score[VtScoreSize], IAddr *ia, int state, AState *as)
 int
 lookupscore(u8int score[VtScoreSize], int type, IAddr *ia)
 {
-	int ms, ret;
+	uint ms;
+	int ret;
 	IEntry d;
 
 	if(icachelookup(score, type, ia) >= 0){
