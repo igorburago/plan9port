@@ -38,7 +38,7 @@ AUTOFRAMEWORK(CoreFoundation)
 static uint	keycvt(uint);
 static int	mousebuttons(void);
 static uint	msec(void);
-static void	setprocname(const char*);
+static void	setprocname(char*);
 
 static void	rpc_bouncemouse(Client*, Mouse);
 static void	rpc_flush(Client*, Rectangle);
@@ -1320,7 +1320,7 @@ rpc_gfxdrawunlock(void)
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 static void
-setprocname(const char *s)
+setprocname(char *procname)
 {
 	/*
 	 * Warning: here be dragons! This is SPI reverse-engineered from WebKit's
@@ -1351,30 +1351,39 @@ setprocname(const char *s)
 	CFStringRef process_name;
 	OSErr err;
 
+	if(!procname || *procname=='\0'){
+		fprint(2, "setprocname: empty process name\n");
+		return;
+	}
+	if(!NSThread.isMainThread){
+		fprint(2, "setprocname: not in main thread\n");
+		return;
+	}
+
 	if(!did_symbol_lookup){
 		did_symbol_lookup = true;
 		launch_services_bundle = CFBundleGetBundleWithIdentifier(
 			CFSTR("com.apple.LaunchServices"));
 		if(launch_services_bundle == nil){
-			fprint(2, "Failed to look up LaunchServices bundle\n");
+			fprint(2, "setprocname: failed to look up LaunchServices bundle\n");
 			return;
 		}
 
 		ls_get_current_application_asn_func = CFBundleGetFunctionPointerForName(
 			launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN"));
 		if(ls_get_current_application_asn_func == nil)
-			fprint(2, "Could not find _LSGetCurrentApplicationASN\n");
+			fprint(2, "setprocname: could not find _LSGetCurrentApplicationASN\n");
 
 		ls_set_application_information_item_func = CFBundleGetFunctionPointerForName(
 			launch_services_bundle, CFSTR("_LSSetApplicationInformationItem"));
 		if(ls_set_application_information_item_func == nil)
-			fprint(2, "Could not find _LSSetApplicationInformationItem\n");
+			fprint(2, "setprocname: could not find _LSSetApplicationInformationItem\n");
 
 		key_pointer = CFBundleGetDataPointerForName(launch_services_bundle,
 			CFSTR("_kLSDisplayNameKey"));
 		ls_display_name_key = key_pointer ? *key_pointer : nil;
 		if(ls_display_name_key == nil)
-			fprint(2, "Could not find _kLSDisplayNameKey\n");
+			fprint(2, "setprocname: could not find _kLSDisplayNameKey\n");
 
 		/*
 		 * Internally, this call relies on the Mach ports that are started up by the
@@ -1391,12 +1400,18 @@ setprocname(const char *s)
 	|| !ls_display_name_key)
 		return;
 
-	process_name = CFStringCreateWithBytes(nil,
-		(uchar*)s, strlen(s), kCFStringEncodingUTF8, false);
+	process_name = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault,
+		procname, kCFStringEncodingUTF8, kCFAllocatorNull);
+	if(process_name == nil){
+		fprint(2, "setprocname: failed to make a string for the process name\n");
+		return;
+	}
 
 	asn = ls_get_current_application_asn_func();
 	err = ls_set_application_information_item_func(magic_session_constant,
 		asn, ls_display_name_key, process_name, nil /* optional out param */);
 	if(err != noErr)
-		fprint(2, "Call to set process name failed\n");
+		fprint(2, "setprocname: call to set process name failed\n");
+
+	CFRelease(process_name);
 }
