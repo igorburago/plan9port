@@ -31,7 +31,9 @@ AUTOFRAMEWORK(CoreFoundation)
 
 #define LOG	if(0)NSLog
 
-// TODO: Maintain list of views for dock menu.
+/*
+ * TODO: Maintain a list of views for the dock menu.
+ */
 
 static uint	keycvt(uint);
 static int	mousebuttons(void);
@@ -47,7 +49,8 @@ static void	rpc_setlabel(Client*, char*);
 static void	rpc_setmouse(Client*, Point);
 static void	rpc_topwin(Client*);
 
-static ClientImpl macimpl = {
+static ClientImpl macimpl =
+{
 	rpc_resizeimg,
 	rpc_resizewindow,
 	rpc_setcursor,
@@ -81,7 +84,6 @@ gfx_main(void)
 	}
 }
 
-
 void
 rpc_shutdown(void)
 {
@@ -114,7 +116,8 @@ rpc_shutdown(void)
 	gfx_started();
 }
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication {
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)app
+{
 	return client0 != nil;
 }
 @end
@@ -156,10 +159,10 @@ rpc_shutdown(void)
 		[cbuf presentDrawable:drawable];
 		drawable = nil;
 		[cbuf addCompletedHandler:^(id<MTLCommandBuffer> cmdBuff){
-			if(cmdBuff.error){
+			if(cmdBuff.error)
 				NSLog(@"command buffer finished with error: %@",
 					cmdBuff.error.localizedDescription);
-			}else
+			else
 				LOG(@"command buffer finishes present drawable");
 		}];
 		[cbuf commit];
@@ -218,16 +221,18 @@ rpc_shutdown(void)
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
 
-// rpc_attach allocates a new screen window with the given label and size
-// and attaches it to client c (by setting c->view).
+/*
+ * rpc_attach allocates a new screen window with the given label and size
+ * and attaches it to client c (by setting c->view).
+ */
 Memimage*
 rpc_attach(Client *c, char *label, char *winsize)
 {
 	LOG(@"attachscreen(%s, %s)", label, winsize);
 
 	c->impl = &macimpl;
-	dispatch_sync(dispatch_get_main_queue(), ^(void) {
-		@autoreleasepool {
+	dispatch_sync(dispatch_get_main_queue(), ^(void){
+		@autoreleasepool{
 			DrawView *view = [[DrawView new] attach:c winsize:winsize label:label];
 			[view initimg];
 		}
@@ -235,7 +240,8 @@ rpc_attach(Client *c, char *label, char *winsize)
 	return ((__bridge DrawView*)c->view).img;
 }
 
-- (id)attach:(Client*)client winsize:(char*)winsize label:(char*)label {
+- (id)attach:(Client*)client winsize:(char*)winsize label:(char*)label
+{
 	NSRect r, sr;
 	Rectangle wr;
 	int set;
@@ -255,7 +261,7 @@ rpc_attach(Client *c, char *label, char *winsize)
 	r = [[NSScreen mainScreen] visibleFrame];
 
 	LOG(@"makewin(%s)", s);
-	if(s == nil || *s == '\0' || parsewinsize(s, &wr, &set) < 0) {
+	if(s==nil || *s=='\0' || parsewinsize(s, &wr, &set)<0){
 		wr = Rect(0, 0, sr.size.width*2/3, sr.size.height*2/3);
 		set = 0;
 	}
@@ -291,12 +297,11 @@ rpc_attach(Client *c, char *label, char *winsize)
 
 	id<MTLDevice> device = nil;
 	allDevices = MTLCopyAllDevices();
-	for(id mtlDevice in allDevices) {
-		if ([mtlDevice isLowPower] && ![mtlDevice isRemovable]) {
+	for(id mtlDevice in allDevices)
+		if([mtlDevice isLowPower] && ![mtlDevice isRemovable]){
 			device = mtlDevice;
 			break;
 		}
-	}
 	if(!device)
 		device = MTLCreateSystemDefaultDevice();
 
@@ -308,16 +313,16 @@ rpc_attach(Client *c, char *label, char *winsize)
 	layer.framebufferOnly = YES;
 	layer.opaque = YES;
 
-	// We use a default transparent layer on top of the CAMetalLayer.
-	// This seems to make fullscreen applications behave.
-	// Specifically, without this code if you enter full screen with Cmd-F,
-	// the screen goes black until the first mouse click.
-	if(1) {
-		CALayer *stub = [CALayer layer];
-		stub.frame = CGRectMake(0, 0, 1, 1);
-		[stub setNeedsDisplay];
-		[layer addSublayer:stub];
-	}
+	/*
+	 * We use a default transparent layer on top of the CAMetalLayer.
+	 * This seems to make fullscreen applications behave. Specifically,
+	 * without this code if you enter full screen with Cmd-F, the screen
+	 * goes black until the first mouse click.
+	 */
+	CALayer *stub = [CALayer layer];
+	stub.frame = CGRectMake(0, 0, 1, 1);
+	[stub setNeedsDisplay];
+	[layer addSublayer:stub];
 
 	[NSEvent setMouseCoalescingEnabled:NO];
 
@@ -328,25 +333,30 @@ rpc_attach(Client *c, char *label, char *winsize)
 	return self;
 }
 
-// rpc_topwin moves the window to the top of the desktop.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_topwin moves the window to the top of the desktop.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_topwin(Client *c)
 {
 	DrawView *view = (__bridge DrawView*)c->view;
-	dispatch_sync(dispatch_get_main_queue(), ^(void) {
+	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		[view topwin];
 	});
 }
 
-- (void)topwin {
+- (void)topwin
+{
 	[self.win makeKeyAndOrderFront:nil];
 	[NSApp activateIgnoringOtherApps:YES];
 }
 
-// rpc_setlabel updates the client window's label.
-// If label == nil, the call is a no-op.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_setlabel updates the client window's label.
+ * If label == nil, the call is a no-op.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_setlabel(Client *client, char *label)
 {
@@ -356,7 +366,8 @@ rpc_setlabel(Client *client, char *label)
 	});
 }
 
-- (void)setlabel:(char*)label {
+- (void)setlabel:(char*)label
+{
 	LOG(@"setlabel(%s)", label);
 	if(label == nil)
 		return;
@@ -369,9 +380,11 @@ rpc_setlabel(Client *client, char *label)
 	}
 }
 
-// rpc_setcursor updates the client window's cursor image.
-// Either c and c2 are both non-nil, or they are both nil to use the default arrow.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_setcursor updates the client window's cursor image. Either c and
+ * c2 are both non-nil, or they are both nil to use the default arrow.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 {
@@ -381,8 +394,9 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 	});
 }
 
-- (void)setcursor:(Cursor*)c cursor2:(Cursor2*)c2 {
-	if(!c) {
+- (void)setcursor:(Cursor*)c cursor2:(Cursor2*)c2
+{
+	if(!c){
 		c = &bigarrow;
 		c2 = &bigarrow2;
 	}
@@ -445,8 +459,9 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 	[self.win invalidateCursorRectsForView:self];
 }
 
-- (void)initimg {
-	@autoreleasepool {
+- (void)initimg
+{
+	@autoreleasepool{
 		CGFloat scale;
 		NSSize size;
 		MTLTextureDescriptor *textureDesc;
@@ -476,18 +491,21 @@ rpc_setcursor(Client *client, Cursor *c, Cursor2 *c2)
 		[self.dlayer setDrawableSize:size];
 		[self.dlayer setContentsScale:scale];
 
-		// NOTE: This is not really the display DPI.
-		// On retina, scale is 2; otherwise it is 1.
-		// This formula gives us 220 for retina, 110 otherwise.
-		// That's not quite right but it's close to correct.
-		// https://en.wikipedia.org/wiki/Retina_display#Models
+		/*
+		 * NOTE: This is not really the display DPI. On retina, scale is 2;
+		 * otherwise it is 1. This formula gives us 220 for retina, 110
+		 * otherwise. That's not quite right but it's close to correct.
+		 * https://en.wikipedia.org/wiki/Retina_display#Models
+		 */
 		self.client->displaydpi = scale * 110;
 	}
 }
 
-// rpc_flush flushes changes to view.img's rectangle r
-// to the on-screen window, making them visible.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_flush flushes changes to view.img's rectangle r
+ * to the on-screen window, making them visible.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_flush(Client *client, Rectangle r)
 {
@@ -497,15 +515,18 @@ rpc_flush(Client *client, Rectangle r)
 	});
 }
 
-- (void)flush:(Rectangle)r {
+- (void)flush:(Rectangle)r
+{
 	@autoreleasepool{
-		if(!rectclip(&r, Rect(0, 0, self.dlayer.texture.width, self.dlayer.texture.height)) || !rectclip(&r, self.img->r))
+		if(!rectclip(&r, Rect(0, 0, self.dlayer.texture.width, self.dlayer.texture.height))
+		|| !rectclip(&r, self.img->r))
 			return;
 
-		// drawlk protects the pixel data in self.img.
-		// In addition to avoiding a technical data race,
-		// the lock avoids drawing partial updates, which makes
-		// animations like sweeping windows much less flickery.
+		/*
+		 * drawlk protects the pixel data in self.img. In addition to avoiding
+		 * a technical data race, the lock avoids drawing partial updates,
+		 * which makes animations like sweeping windows much less flickery.
+		 */
 		qlock(&drawlk);
 		[self.dlayer.texture
 			replaceRegion:MTLRegionMake2D(r.min.x, r.min.y, Dx(r), Dy(r))
@@ -531,9 +552,12 @@ rpc_flush(Client *client, Rectangle r)
 	}
 }
 
-// rpc_resizeimg forces the client window to discard its current window and make a new one.
-// It is called when the user types Cmd-R to toggle whether retina mode is forced.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_resizeimg forces the client window to discard its current window
+ * and make a new one. It is called when the user types Cmd-R to toggle
+ * whether retina mode is forced.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_resizeimg(Client *c)
 {
@@ -543,15 +567,16 @@ rpc_resizeimg(Client *c)
 	});
 }
 
-- (void)resizeimg {
+- (void)resizeimg
+{
 	[self initimg];
 	gfx_replacescreenimage(self.client, self.img);
 }
 
-- (void)windowDidResize:(NSNotification *)notification {
-	if(![self inLiveResize] && self.img) {
+- (void)windowDidResize:(NSNotification*)notif
+{
+	if(![self inLiveResize] && self.img)
 		[self resizeimg];
-	}
 }
 - (void)viewDidEndLiveResize
 {
@@ -567,8 +592,10 @@ rpc_resizeimg(Client *c)
 		[self resizeimg];
 }
 
-// rpc_resizewindow asks for the client window to be resized to size r.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_resizewindow asks for the client window to be resized to size r.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_resizewindow(Client *c, Rectangle r)
 {
@@ -583,25 +610,26 @@ rpc_resizewindow(Client *c, Rectangle r)
 	});
 }
 
-
-- (void)windowDidBecomeKey:(id)arg {
-        [self sendmouse:0];
+- (void)windowDidBecomeKey:(id)arg
+{
+	[self sendmouse:0];
 }
 
-- (void)windowDidResignKey:(id)arg {
+- (void)windowDidResignKey:(id)arg
+{
 	gfx_abortcompose(self.client);
 }
 
-- (void)mouseMoved:(NSEvent*)e{ [self getmouse:e];}
-- (void)mouseDown:(NSEvent*)e{ [self getmouse:e];}
-- (void)mouseDragged:(NSEvent*)e{ [self getmouse:e];}
-- (void)mouseUp:(NSEvent*)e{ [self getmouse:e];}
-- (void)otherMouseDown:(NSEvent*)e{ [self getmouse:e];}
-- (void)otherMouseDragged:(NSEvent*)e{ [self getmouse:e];}
-- (void)otherMouseUp:(NSEvent*)e{ [self getmouse:e];}
-- (void)rightMouseDown:(NSEvent*)e{ [self getmouse:e];}
-- (void)rightMouseDragged:(NSEvent*)e{ [self getmouse:e];}
-- (void)rightMouseUp:(NSEvent*)e{ [self getmouse:e];}
+- (void)mouseMoved:(NSEvent*)e { [self getmouse:e]; }
+- (void)mouseDown:(NSEvent*)e { [self getmouse:e]; }
+- (void)mouseDragged:(NSEvent*)e { [self getmouse:e]; }
+- (void)mouseUp:(NSEvent*)e { [self getmouse:e]; }
+- (void)otherMouseDown:(NSEvent*)e { [self getmouse:e]; }
+- (void)otherMouseDragged:(NSEvent*)e { [self getmouse:e]; }
+- (void)otherMouseUp:(NSEvent*)e { [self getmouse:e]; }
+- (void)rightMouseDown:(NSEvent*)e { [self getmouse:e]; }
+- (void)rightMouseDragged:(NSEvent*)e { [self getmouse:e]; }
+- (void)rightMouseUp:(NSEvent*)e { [self getmouse:e]; }
 
 static CGFloat
 roundhalfeven(CGFloat x)
@@ -711,8 +739,8 @@ scrolldeltatoint(CGFloat delta)
 - (void)touchesEndedWithEvent:(NSEvent*)e
 {
 	if(_tapping
-		&& [e touchesMatchingPhase:NSTouchPhaseTouching inView:nil].count == 0
-		&& msec() - _tapTime < 250){
+	&& [e touchesMatchingPhase:NSTouchPhaseTouching inView:nil].count==0
+	&& msec()-_tapTime<250){
 		switch(_tapFingers){
 		case 3:
 			[self sendmouse:Mbutton2];
@@ -749,7 +777,7 @@ mousebuttons(void)
 	return b;
 }
 
-- (void)getmouse:(NSEvent *)e
+- (void)getmouse:(NSEvent*)e
 {
 	NSEventModifierFlags m;
 	int b;
@@ -760,8 +788,7 @@ mousebuttons(void)
 		if(m & NSEventModifierFlagOption){
 			gfx_abortcompose(self.client);
 			b = Mbutton2;
-		}else
-		if(m & NSEventModifierFlagCommand)
+		}else if(m & NSEventModifierFlagCommand)
 			b = Mbutton3;
 	}
 	[self sendmouse:b];
@@ -779,15 +806,17 @@ mousebuttons(void)
 	p = [self.window mouseLocationOutsideOfEventStream];
 	p = [self.window convertPointToBacking:p];
 	p.y = self.client->mouserect.max.y - p.y;
-	// LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
+	//LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
 
 	gfx_mousetrack(self.client, (int)p.x, (int)p.y, b, scroll, msec());
 	if(b!=0 && !NSIsEmptyRect(_lastInputRect))
 		[self resetLastInputRect];
 }
 
-// rpc_setmouse moves the mouse cursor.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_setmouse moves the mouse cursor.
+ * Called from an RPC thread with no client lock held.
+ */
 static void
 rpc_setmouse(Client *c, Point p)
 {
@@ -797,7 +826,8 @@ rpc_setmouse(Client *c, Point p)
 	});
 }
 
-- (void)setmouse:(Point)p {
+- (void)setmouse:(Point)p
+{
 	@autoreleasepool{
 		NSPoint q;
 
@@ -808,13 +838,14 @@ rpc_setmouse(Client *c, Point p)
 		LOG(@"(%g, %g) <- toWindow", q.x, q.y);
 		q = [self.win convertPointToScreen:q];
 		LOG(@"(%g, %g) <- toScreen", q.x, q.y);
-		// Quartz has the origin of the "global display
-		// coordinate space" at the top left of the primary
-		// screen with y increasing downward, while Cocoa has
-		// the origin at the bottom left of the primary screen
-		// with y increasing upward.  We flip the coordinate
-		// with a negative sign and shift upward by the height
-		// of the primary screen.
+		/*
+		 * Quartz has the origin of the "global display coordinate space"
+		 * at the top left of the primary screen (not to be confused with
+		 * the main screen) with y increasing downward, while Cocoa has the
+		 * origin at the bottom left of the primary screen with y increasing
+		 * upward. We flip the coordinate with a negative sign and shift
+		 * upward by the height of the primary screen.
+		 */
 		q.y = NSScreen.screens[0].frame.size.height - q.y;
 		LOG(@"(%g, %g) <- setmouse", q.x, q.y);
 		CGWarpMouseCursorPosition(NSPointToCGPoint(q));
@@ -822,13 +853,13 @@ rpc_setmouse(Client *c, Point p)
 	}
 }
 
-
-- (void)resetCursorRects {
+- (void)resetCursorRects
+{
 	[super resetCursorRects];
 	[self addCursorRect:self.bounds cursor:self.currentCursor];
 }
 
-// conforms to protocol NSTextInputClient
+/* Conforms to the NSTextInputClient protocol. */
 - (BOOL)hasMarkedText { return _markedRange.location != NSNotFound; }
 - (NSRange)markedRange { return _markedRange; }
 - (NSRange)selectedRange { return _selectedRange; }
@@ -851,11 +882,10 @@ rpc_setmouse(Client *c, Point p)
 		str = string;
 
 	if(rRange.location == NSNotFound){
-		if(_markedRange.location != NSNotFound){
+		if(_markedRange.location != NSNotFound)
 			rRange = _markedRange;
-		}else{
+		else
 			rRange = _selectedRange;
-		}
 	}
 
 	if(str.length == 0){
@@ -871,7 +901,7 @@ rpc_setmouse(Client *c, Point p)
 	if(_tmpText.length){
 		uint i;
 		LOG(@"text length %ld", _tmpText.length);
-		for(i = 0; i <= _tmpText.length; ++i){
+		for(i=0; i<=_tmpText.length; i++){
 			if(i == _markedRange.location)
 				gfx_keystroke(self.client, '[');
 			if(_selectedRange.length){
@@ -879,17 +909,17 @@ rpc_setmouse(Client *c, Point p)
 					gfx_keystroke(self.client, '{');
 				if(i == NSMaxRange(_selectedRange))
 					gfx_keystroke(self.client, '}');
-				}
+			}
 			if(i == NSMaxRange(_markedRange))
 				gfx_keystroke(self.client, ']');
 			if(i < _tmpText.length)
 				gfx_keystroke(self.client, [_tmpText characterAtIndex:i]);
 		}
 		int l;
-		l = 1 + _tmpText.length - NSMaxRange(_selectedRange)
-			+ (_selectedRange.length > 0);
+		l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
+			(_selectedRange.length > 0);
 		LOG(@"move left %d", l);
-		for(i = 0; i < l; ++i)
+		for(i=0; i<l; i++)
 			gfx_keystroke(self.client, Kleft);
 	}
 
@@ -898,20 +928,22 @@ rpc_setmouse(Client *c, Point p)
 		_selectedRange.location, _selectedRange.length);
 }
 
-- (void)unmarkText {
+- (void)unmarkText
+{
 	//NSUInteger i;
 	NSUInteger len;
 
 	LOG(@"unmarkText");
 	len = [_tmpText length];
-	//for(i = 0; i < len; ++i)
+	//for(i=0; i<len; i++)
 	//	gfx_keystroke(self.client, [_tmpText characterAtIndex:i]);
 	[_tmpText deleteCharactersInRange:NSMakeRange(0, len)];
 	_markedRange = NSMakeRange(NSNotFound, 0);
 	_selectedRange = NSMakeRange(0, 0);
 }
 
-- (NSArray<NSAttributedStringKey>*)validAttributesForMarkedText {
+- (NSArray<NSAttributedStringKey>*)validAttributesForMarkedText
+{
 	LOG(@"validAttributesForMarkedText");
 	return @[];
 }
@@ -937,16 +969,16 @@ rpc_setmouse(Client *c, Point p)
 	return s;
 }
 
-- (void)insertText:(id)s replacementRange:(NSRange)r {
-	NSUInteger i;
-	NSUInteger len;
+- (void)insertText:(id)s replacementRange:(NSRange)r
+{
+	NSUInteger i, len;
 
 	LOG(@"insertText: %@ replacementRange: %ld, %ld", s, r.location, r.length);
 
 	[self clearInput];
 
 	len = [s length];
-	for(i = 0; i < len; ++i)
+	for(i=0; i<len; i++)
 		gfx_keystroke(self.client, [s characterAtIndex:i]);
 	[_tmpText deleteCharactersInRange:NSMakeRange(0, _tmpText.length)];
 	_markedRange = NSMakeRange(NSNotFound, 0);
@@ -959,7 +991,8 @@ rpc_setmouse(Client *c, Point p)
 	return 0;
 }
 
-- (NSRect)firstRectForCharacterRange:(NSRange)r actualRange:(NSRangePointer)actualRange {
+- (NSRect)firstRectForCharacterRange:(NSRange)r actualRange:(NSRangePointer)actualRange
+{
 	LOG(@"firstRectForCharacterRange: (%ld, %ld) (%ld, %ld)",
 		r.location, r.length, actualRange->location, actualRange->length);
 	if(actualRange)
@@ -967,7 +1000,8 @@ rpc_setmouse(Client *c, Point p)
 	return [[self window] convertRectToScreen:_lastInputRect];
 }
 
-- (void)doCommandBySelector:(SEL)s {
+- (void)doCommandBySelector:(SEL)s
+{
 	NSEvent *e;
 	NSEventModifierFlags m;
 	uint c, k;
@@ -981,17 +1015,18 @@ rpc_setmouse(Client *c, Point p)
 	m = [e modifierFlags];
 
 	if(m & NSEventModifierFlagCommand){
-		if((m & NSEventModifierFlagShift) && 'a' <= k && k <= 'z')
+		if((m&NSEventModifierFlagShift) && 'a'<=k && k<='z')
 			k += 'A' - 'a';
 		if(' '<=k && k<='~')
 			k += Kcmd;
 	}
-	if(k>0)
+	if(k > 0)
 		gfx_keystroke(self.client, k);
 }
 
-// Helper for managing input rect approximately
-- (void)resetLastInputRect {
+/* Helper for managing input rect approximately. */
+- (void)resetLastInputRect
+{
 	LOG(@"resetLastInputRect");
 	_lastInputRect.origin.x = 0.0;
 	_lastInputRect.origin.y = 0.0;
@@ -999,7 +1034,8 @@ rpc_setmouse(Client *c, Point p)
 	_lastInputRect.size.height = 0.0;
 }
 
-- (void)enlargeLastInputRect:(NSRect)r {
+- (void)enlargeLastInputRect:(NSRect)r
+{
 	r.origin.y = [self bounds].size.height - r.origin.y - r.size.height;
 	_lastInputRect = NSUnionRect(_lastInputRect, r);
 	LOG(@"update last input rect (%g, %g, %g, %g)",
@@ -1007,12 +1043,13 @@ rpc_setmouse(Client *c, Point p)
 		_lastInputRect.size.width, _lastInputRect.size.height);
 }
 
-- (void)clearInput {
+- (void)clearInput
+{
 	if(_tmpText.length){
 		uint i;
 		int l;
-		l = 1 + _tmpText.length - NSMaxRange(_selectedRange)
-			+ (_selectedRange.length > 0);
+		l = 1 + _tmpText.length - NSMaxRange(_selectedRange) +
+			(_selectedRange.length > 0);
 		LOG(@"move right %d", l);
 		for(i = 0; i < l; ++i)
 			gfx_keystroke(self.client, Kright);
@@ -1024,37 +1061,41 @@ rpc_setmouse(Client *c, Point p)
 }
 
 - (NSApplicationPresentationOptions)window:(id)arg
-		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions {
-	// The default for full-screen is to auto-hide the dock and menu bar,
-	// but the menu bar in particular comes back when the cursor is just
-	// near the top of the screen, which makes acme's top tag line very difficult to use.
-	// Disable the menu bar entirely.
-	// In theory this code disables the dock entirely too, but if you drag the mouse
-	// down far enough off the bottom of the screen the dock still unhides.
-	// That's OK.
+	willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+{
+	/*
+	 * The default for full-screen is to auto-hide the dock and menu bar,
+	 * but the menu bar in particular comes back when the cursor is just
+	 * near the top of the screen, which makes acme's top tag line very
+	 * difficult to use. Disable the menu bar entirely. In theory this
+	 * code disables the dock entirely too, but if you drag the mouse down
+	 * far enough off the bottom of the screen the dock still unhides.
+	 * That's OK.
+	 */
 	NSApplicationPresentationOptions o;
+
 	o = proposedOptions;
 	o &= ~(NSApplicationPresentationAutoHideDock | NSApplicationPresentationAutoHideMenuBar);
 	o |= NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
 	return o;
 }
 
-- (void)windowWillEnterFullScreen:(NSNotification*)notification {
-	// This is a heavier-weight way to make sure the menu bar and dock go away,
-	// but this affects all screens even though the app is running on full screen
-	// on only one screen, so it's not great. The behavior from the
-	// willUseFullScreenPresentationOptions seems to be enough for now.
+- (void)windowWillEnterFullScreen:(NSNotification*)notif
+{
 	/*
-	[[NSApplication sharedApplication]
-		setPresentationOptions:NSApplicationPresentationHideMenuBar | NSApplicationPresentationHideDock];
-	*/
+	 * This is a heavier-weight way to make sure the menu bar and dock go
+	 * away, but this affects all screens even though the app is running on
+	 * full screen on only one screen, so it's not great. The behavior from
+	 * the willUseFullScreenPresentationOptions seems to be enough for now.
+	 */
+	//[[NSApplication sharedApplication] setPresentationOptions:
+	//	NSApplicationPresentationHideMenuBar|NSApplicationPresentationHideDock];
 }
 
-- (void)windowDidExitFullScreen:(NSNotification*)notification {
-	/*
-	[[NSApplication sharedApplication]
-		setPresentationOptions:NSApplicationPresentationDefault];
-	*/
+- (void)windowDidExitFullScreen:(NSNotification*)notif
+{
+	//[[NSApplication sharedApplication] setPresentationOptions:
+	//	NSApplicationPresentationDefault];
 }
 @end
 
@@ -1146,16 +1187,18 @@ keycvt(uint code)
 	}
 }
 
-// rpc_getsnarf reads the current pasteboard as a plain text string.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_getsnarf reads the current pasteboard as a plain text string.
+ * Called from an RPC thread with no client lock held.
+ */
 char*
 rpc_getsnarf(void)
 {
 	char __block *ret;
 
 	ret = nil;
-	dispatch_sync(dispatch_get_main_queue(), ^(void) {
-		@autoreleasepool {
+	dispatch_sync(dispatch_get_main_queue(), ^(void){
+		@autoreleasepool{
 			NSPasteboard *pb = [NSPasteboard generalPasteboard];
 			NSString *s = [pb stringForType:NSPasteboardTypeString];
 			if(s)
@@ -1165,15 +1208,17 @@ rpc_getsnarf(void)
 	return ret;
 }
 
-// rpc_putsnarf writes the given text to the pasteboard.
-// Called from an RPC thread with no client lock held.
+/*
+ * rpc_putsnarf writes the given text to the pasteboard.
+ * Called from an RPC thread with no client lock held.
+ */
 void
 rpc_putsnarf(char *s)
 {
-	if(s == nil || strlen(s) >= SnarfSize)
+	if(s==nil || strlen(s)>=SnarfSize)
 		return;
 
-	dispatch_sync(dispatch_get_main_queue(), ^(void) {
+	dispatch_sync(dispatch_get_main_queue(), ^(void){
 		@autoreleasepool{
 			NSArray *t = [NSArray arrayWithObject:NSPasteboardTypeString];
 			NSPasteboard *pb = [NSPasteboard generalPasteboard];
@@ -1184,16 +1229,20 @@ rpc_putsnarf(char *s)
 	});
 }
 
-// rpc_bouncemouse is for sending a mouse event
-// back to the X11 window manager rio(1).
-// Does not apply here.
+/*
+ * rpc_bouncemouse is for sending a mouse event
+ * back to the X11 window manager rio(1).
+ * Does not apply here.
+ */
 static void
 rpc_bouncemouse(Client *c, Mouse m)
 {
 }
 
-// We don't use the graphics thread state during memimagedraw,
-// so rpc_gfxdrawlock and rpc_gfxdrawunlock are no-ops.
+/*
+ * We don't use the graphics thread state during memimagedraw,
+ * so rpc_gfxdrawlock and rpc_gfxdrawunlock are no-ops.
+ */
 void
 rpc_gfxdrawlock(void)
 {
@@ -1204,118 +1253,114 @@ rpc_gfxdrawunlock(void)
 {
 }
 
+/*
+ * The setprocname() function below is an adaptation of SetProcessName()
+ * from Chromium's mac_util.mm, licensed under the following terms. The
+ * original source can be found at
+ * https://src.chromium.org/viewvc/chrome/trunk/src/base/mac/mac_util.mm?pathrev=227366#l301
+ *
+ * Copyright (c) 2013 The Chromium Authors. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *    * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 static void
 setprocname(const char *s)
 {
-  CFStringRef process_name;
+	/*
+	 * Warning: here be dragons! This is SPI reverse-engineered from WebKit's
+	 * plugin host, and could break at any time (although realistically it's
+	 * only likely to break in a new major release).
+	 * When 10.7 is available, check that this still works, and update this
+	 * comment for 10.8.
+	 */
 
-  process_name = CFStringCreateWithBytes(nil, (uchar*)s, strlen(s), kCFStringEncodingUTF8, false);
+	/* Private CFType used in these LaunchServices calls. */
+	typedef CFTypeRef PrivateLSASN;
+	typedef PrivateLSASN (*LSGetCurrentApplicationASNType)();
+	typedef OSStatus (*LSSetApplicationInformationItemType)(
+		int, PrivateLSASN, CFStringRef, CFStringRef, CFDictionaryRef*);
 
-  // Adapted from Chrome's mac_util.mm.
-  // http://src.chromium.org/viewvc/chrome/trunk/src/base/mac/mac_util.mm
-  //
-  // Copyright (c) 2012 The Chromium Authors. All rights reserved.
-  //
-  // Redistribution and use in source and binary forms, with or without
-  // modification, are permitted provided that the following conditions are
-  // met:
-  //
-  //    * Redistributions of source code must retain the above copyright
-  // notice, this list of conditions and the following disclaimer.
-  //    * Redistributions in binary form must reproduce the above
-  // copyright notice, this list of conditions and the following disclaimer
-  // in the documentation and/or other materials provided with the
-  // distribution.
-  //    * Neither the name of Google Inc. nor the names of its
-  // contributors may be used to endorse or promote products derived from
-  // this software without specific prior written permission.
-  //
-  // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-  // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-  // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-  // A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-  // OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-  // SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  // LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-  // DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-  // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  // Warning: here be dragons! This is SPI reverse-engineered from WebKit's
-  // plugin host, and could break at any time (although realistically it's only
-  // likely to break in a new major release).
-  // When 10.7 is available, check that this still works, and update this
-  // comment for 10.8.
+	static LSGetCurrentApplicationASNType ls_get_current_application_asn_func = NULL;
+	static LSSetApplicationInformationItemType ls_set_application_information_item_func = NULL;
+	static CFStringRef ls_display_name_key = NULL;
+	static bool did_symbol_lookup = false;
 
-  // Private CFType used in these LaunchServices calls.
-  typedef CFTypeRef PrivateLSASN;
-  typedef PrivateLSASN (*LSGetCurrentApplicationASNType)();
-  typedef OSStatus (*LSSetApplicationInformationItemType)(int, PrivateLSASN,
-                                                          CFStringRef,
-                                                          CFStringRef,
-                                                          CFDictionaryRef*);
+	if(!did_symbol_lookup){
+		did_symbol_lookup = true;
+		CFBundleRef launch_services_bundle = CFBundleGetBundleWithIdentifier(
+			CFSTR("com.apple.LaunchServices"));
+		if(!launch_services_bundle){
+			fprint(2, "Failed to look up LaunchServices bundle\n");
+			return;
+		}
 
-  static LSGetCurrentApplicationASNType ls_get_current_application_asn_func =
-      NULL;
-  static LSSetApplicationInformationItemType
-      ls_set_application_information_item_func = NULL;
-  static CFStringRef ls_display_name_key = NULL;
+		ls_get_current_application_asn_func =
+			(LSGetCurrentApplicationASNType)(CFBundleGetFunctionPointerForName(
+				launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN")));
+		if(!ls_get_current_application_asn_func)
+			fprint(2, "Could not find _LSGetCurrentApplicationASN\n");
 
-  static bool did_symbol_lookup = false;
-  if (!did_symbol_lookup) {
-    did_symbol_lookup = true;
-    CFBundleRef launch_services_bundle =
-        CFBundleGetBundleWithIdentifier(CFSTR("com.apple.LaunchServices"));
-    if (!launch_services_bundle) {
-      fprint(2, "Failed to look up LaunchServices bundle\n");
-      return;
-    }
+		ls_set_application_information_item_func =
+			(LSSetApplicationInformationItemType)(CFBundleGetFunctionPointerForName(
+				launch_services_bundle, CFSTR("_LSSetApplicationInformationItem")));
+		if(!ls_set_application_information_item_func)
+			fprint(2, "Could not find _LSSetApplicationInformationItem\n");
 
-    ls_get_current_application_asn_func =
-        (LSGetCurrentApplicationASNType)(
-            CFBundleGetFunctionPointerForName(
-                launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN")));
-    if (!ls_get_current_application_asn_func)
-      fprint(2, "Could not find _LSGetCurrentApplicationASN\n");
+		CFStringRef* key_pointer = (CFStringRef*)(CFBundleGetDataPointerForName(
+			launch_services_bundle, CFSTR("_kLSDisplayNameKey")));
+		ls_display_name_key = key_pointer ? *key_pointer : NULL;
+		if(!ls_display_name_key)
+			fprint(2, "Could not find _kLSDisplayNameKey\n");
 
-    ls_set_application_information_item_func =
-        (LSSetApplicationInformationItemType)(
-            CFBundleGetFunctionPointerForName(
-                launch_services_bundle,
-                CFSTR("_LSSetApplicationInformationItem")));
-    if (!ls_set_application_information_item_func)
-      fprint(2, "Could not find _LSSetApplicationInformationItem\n");
+		/*
+		 * Internally, this call relies on the Mach ports that are started up by the
+		 * Carbon Process Manager. In debug builds this usually happens due to how
+		 * the logging layers are started up; but in release, it isn't started in as
+		 * much of a defined order. So if the symbols had to be loaded, go ahead
+		 * and force a call to make sure the manager has been initialized and hence
+		 * the ports are opened.
+		 */
+		ProcessSerialNumber psn;
+		GetCurrentProcess(&psn);
+	}
+	if(!ls_get_current_application_asn_func
+	|| !ls_set_application_information_item_func
+	|| !ls_display_name_key)
+		return;
 
-    CFStringRef* key_pointer = (CFStringRef*)(
-        CFBundleGetDataPointerForName(launch_services_bundle,
-                                      CFSTR("_kLSDisplayNameKey")));
-    ls_display_name_key = key_pointer ? *key_pointer : NULL;
-    if (!ls_display_name_key)
-      fprint(2, "Could not find _kLSDisplayNameKey\n");
+	CFStringRef process_name = CFStringCreateWithBytes(
+		nil, (uchar*)s, strlen(s), kCFStringEncodingUTF8, false);
 
-    // Internally, this call relies on the Mach ports that are started up by the
-    // Carbon Process Manager.  In debug builds this usually happens due to how
-    // the logging layers are started up; but in release, it isn't started in as
-    // much of a defined order.  So if the symbols had to be loaded, go ahead
-    // and force a call to make sure the manager has been initialized and hence
-    // the ports are opened.
-    ProcessSerialNumber psn;
-    GetCurrentProcess(&psn);
-  }
-  if (!ls_get_current_application_asn_func ||
-      !ls_set_application_information_item_func ||
-      !ls_display_name_key) {
-    return;
-  }
-
-  PrivateLSASN asn = ls_get_current_application_asn_func();
-  // Constant used by WebKit; what exactly it means is unknown.
-  const int magic_session_constant = -2;
-  OSErr err =
-      ls_set_application_information_item_func(magic_session_constant, asn,
-                                               ls_display_name_key,
-                                               process_name,
-                                               NULL /* optional out param */);
-  if(err != noErr)
-    fprint(2, "Call to set process name failed\n");
+	PrivateLSASN asn = ls_get_current_application_asn_func();
+	/* Constant used by WebKit; what exactly it means is unknown. */
+	const int magic_session_constant = -2;
+	OSErr err = ls_set_application_information_item_func(
+		magic_session_constant, asn, ls_display_name_key,
+		process_name, NULL /* optional out param */);
+	if(err != noErr)
+		fprint(2, "Call to set process name failed\n");
 }
