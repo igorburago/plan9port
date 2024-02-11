@@ -200,41 +200,74 @@ rpc_shutdown(void)
 - (void)setcursor:(Cursor*)c cursor2:(Cursor2*)c2;
 - (void)setmouse:(Point)p;
 - (void)clearInput;
+- (NSPoint)mouselocation:(NSEvent*)e;
 - (void)getmouse:(NSEvent*)e;
 - (void)sendmouse:(int)b;
-- (void)sendmouse:(int)b scroll:(int)scroll;
+- (void)sendmouse:(int)b at:(NSPoint)p;
+- (void)sendmouse:(int)b scroll:(int)scroll at:(NSPoint)p;
 - (void)resetLastInputRect;
 - (void)enlargeLastInputRect:(NSRect)r;
 @end
 
 @implementation DrawView
 {
-	NSMutableString	*_tmpText;
-	NSRange		_markedRange;
-	NSRange		_selectedRange;
-	NSRect		_lastInputRect;	/* the view is flipped, this is not */
-	BOOL		_tapping;
-	int		_tapFingers;
-	uint		_tapTime;
-	BOOL		_inScrollPhase;
+	/* Scrolling */
+	BOOL			_inScrollPhase;
+
+	/* Cursor warping */
+	CGEventSourceRef	_nodelayevents;	/* for preventing a warping delay in setmouse */
+	BOOL			_warped;
+	NSTimeInterval		_warptime;	/* in seconds since system startup, as in NSEvent.timestamp */
+	NSPoint			_warptarget;	/* desired point in window coordinates */
+
+	/* Trackpad tap chords */
+	BOOL			_tapping;
+	int			_tapFingers;
+	uint			_tapTime;
+
+	/* Text input mode */
+	NSMutableString		*_tmpText;
+	NSRange			_markedRange;
+	NSRange			_selectedRange;
+	NSRect			_lastInputRect;	/* in window coordinates */
 }
 
 - (id)init
 {
 	LOG(@"View init");
 	self = [super init];
+
+	/*
+	 * The _nodelayevents source is not used directly; the mere fact of
+	 * its creation here guarantees that the CGWarpMouseCursorPosition()
+	 * call in the setmouse method will always have an immediate effect,
+	 * thanks to the zero event suppression interval that we set for it.
+	 * This works becase as long as there exists an event source with
+	 * no suppression delay that is connected to one of the global event
+	 * state tables (in this case, for the current user login session),
+	 * the system must apply cursor warps immediately lest such source
+	 * would contradictorily become a delayed one after a warp.
+	 */
+	_nodelayevents = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+	CGEventSourceSetLocalEventsSuppressionInterval(_nodelayevents, 0);
+
 	[self setAllowedTouchTypes:NSTouchTypeMaskDirect|NSTouchTypeMaskIndirect];
+
 	_tmpText = [[NSMutableString alloc] initWithCapacity:2];
 	_markedRange = NSMakeRange(NSNotFound, 0);
 	_selectedRange = NSMakeRange(0, 0);
-	_inScrollPhase = NO;
 	return self;
+}
+
+- (void)dealloc
+{
+	if(_nodelayevents != nil)
+		CFRelease(_nodelayevents);
 }
 
 - (CALayer*)makeBackingLayer { return [DrawLayer layer]; }
 - (BOOL)wantsUpdateLayer { return YES; }
 - (BOOL)isOpaque { return YES; }
-- (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
 
 /*
@@ -652,16 +685,28 @@ rpc_resizewindow(Client *c, Rectangle r)
 	gfx_abortcompose(self.client);
 }
 
-- (void)mouseMoved:(NSEvent*)e { [self getmouse:e]; }
+- (void)mouseMoved:(NSEvent*)e
+{
+	/*
+	 * When the mouse is warped, there may be moves (or drags) that
+	 * are spawned after the instigating setmouse call was received,
+	 * but before the resulting warp was carried out; ignore those.
+	 */
+	if(_warped && e.timestamp-_warptime<0.001)
+		return;
+	[self getmouse:e];
+}
+- (void)mouseDragged:(NSEvent*)e { [self mouseMoved:e]; }
+- (void)rightMouseDragged:(NSEvent*)e { [self mouseMoved:e]; }
+- (void)otherMouseDragged:(NSEvent*)e { [self mouseMoved:e]; }
+
 - (void)mouseDown:(NSEvent*)e { [self getmouse:e]; }
-- (void)mouseDragged:(NSEvent*)e { [self getmouse:e]; }
-- (void)mouseUp:(NSEvent*)e { [self getmouse:e]; }
-- (void)otherMouseDown:(NSEvent*)e { [self getmouse:e]; }
-- (void)otherMouseDragged:(NSEvent*)e { [self getmouse:e]; }
-- (void)otherMouseUp:(NSEvent*)e { [self getmouse:e]; }
 - (void)rightMouseDown:(NSEvent*)e { [self getmouse:e]; }
-- (void)rightMouseDragged:(NSEvent*)e { [self getmouse:e]; }
+- (void)otherMouseDown:(NSEvent*)e { [self getmouse:e]; }
+
+- (void)mouseUp:(NSEvent*)e { [self getmouse:e]; }
 - (void)rightMouseUp:(NSEvent*)e { [self getmouse:e]; }
+- (void)otherMouseUp:(NSEvent*)e { [self getmouse:e]; }
 
 static CGFloat
 roundhalfeven(CGFloat x)
@@ -690,10 +735,12 @@ scrolldeltatoint(CGFloat delta)
 
 - (void)scrollWheel:(NSEvent*)e
 {
+	NSPoint p;
 	NSEventPhase phase;
 	BOOL inertial;
 	CGFloat delta;
 
+	p = [self mouselocation:e];
 	phase = e.momentumPhase;
 	inertial = (phase != NSEventPhaseNone);
 	if(!inertial)
@@ -703,19 +750,19 @@ scrolldeltatoint(CGFloat delta)
 	if(phase != NSEventPhaseNone){
 		if(phase == NSEventPhaseBegan){
 			_inScrollPhase = YES;
-			[self sendmouse:inertial ? Mscrollinertiastart : Mscrollmotionstart];
+			[self sendmouse:(inertial ? Mscrollinertiastart : Mscrollmotionstart) at:p];
 		}
 		if(delta != 0)
-			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta]];
+			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta] at:p];
 		if(_inScrollPhase && (phase==NSEventPhaseEnded || phase==NSEventPhaseCancelled)){
 			_inScrollPhase = NO;
-			[self sendmouse:inertial ? Mscrollinertiastop : Mscrollmotionstop];
+			[self sendmouse:(inertial ? Mscrollinertiastop : Mscrollmotionstop) at:p];
 		}
 	}else if(delta != 0){
 		if(e.hasPreciseScrollingDeltas)
-			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta]];
+			[self sendmouse:Mpixelscroll scroll:[self scrolldeltatobacking:delta] at:p];
 		else
-			[self sendmouse:Mlinescroll scroll:scrolldeltatoint(delta)];
+			[self sendmouse:Mlinescroll scroll:scrolldeltatoint(delta) at:p];
 	}
 }
 
@@ -776,18 +823,22 @@ scrolldeltatoint(CGFloat delta)
 }
 - (void)touchesEndedWithEvent:(NSEvent*)e
 {
+	NSPoint p;
+
 	if(_tapping
 	&& [e touchesMatchingPhase:NSTouchPhaseTouching inView:nil].count==0
 	&& msec()-_tapTime<250){
 		switch(_tapFingers){
 		case 3:
-			[self sendmouse:Mbutton2];
-			[self sendmouse:0];
+			p = [self mouselocation:e];
+			[self sendmouse:Mbutton2 at:p];
+			[self sendmouse:0 at:p];
 			break;
 		case 4:
-			[self sendmouse:Mbutton2];
-			[self sendmouse:Mbutton1];
-			[self sendmouse:0];
+			p = [self mouselocation:e];
+			[self sendmouse:Mbutton2 at:p];
+			[self sendmouse:Mbutton1 at:p];
+			[self sendmouse:0 at:p];
 			break;
 		}
 		_tapping = NO;
@@ -796,6 +847,17 @@ scrolldeltatoint(CGFloat delta)
 - (void)touchesCancelledWithEvent:(NSEvent*)e
 {
 	_tapping = NO;
+}
+
+- (NSPoint)mouselocation:(NSEvent*)e
+{
+	/*
+	 * According to documentation, for some mouse events, e.locationInWindow
+	 * may be in screen coordinates, as signalled by e.window==nil.
+	 */
+	if(e.window == nil)
+		return [self.window convertPointFromScreen:e.locationInWindow];
+	return e.locationInWindow;
 }
 
 static int
@@ -829,21 +891,48 @@ mousebuttons(void)
 		}else if(m & NSEventModifierFlagCommand)
 			b = Mbutton3;
 	}
-	[self sendmouse:b];
+	[self sendmouse:b at:[self mouselocation:e]];
 }
 
+/*
+ * When calling the sendmouse method from an event handler, prefer
+ * to explicitly pass the mouse location from the event object (but
+ * only if it is a mouse event; for others, NSEvent.locationInWindow
+ * is undefined!) because NSWindow.mouseLocationOutsideOfEventStream
+ * may not always be up to date.
+ */
 - (void)sendmouse:(int)b
 {
-	[self sendmouse:b scroll:0];
+	[self sendmouse:b scroll:0 at:self.window.mouseLocationOutsideOfEventStream];
 }
 
-- (void)sendmouse:(int)b scroll:(int)scroll
+- (void)sendmouse:(int)b at:(NSPoint)p
 {
-	NSPoint p;
+	[self sendmouse:b scroll:0 at:p];
+}
 
-	p = self.window.mouseLocationOutsideOfEventStream;
-	p = [self.window convertPointToBacking:p];
+- (void)sendmouse:(int)b scroll:(int)scroll at:(NSPoint)p
+{
+	if(_warped){
+		_warped = NO;
+		if(floor(p.x) == floor(_warptarget.x)){
+			p.x = _warptarget.x;
+			_warped = YES;
+		}
+		if(ceil(p.y) == ceil(_warptarget.y)){
+			p.y = _warptarget.y;
+			_warped = YES;
+		}
+	}
+
+	/* Window points → view points. */
+	p = [self convertPoint:p fromView:nil];
+	/* View points → physical view pixels. */
+	p = [self convertPointToBacking:p];
+	/* View pixels → client image pixels. */
+	p.x = self.img->r.min.x + p.x;
 	p.y = self.img->r.max.y - p.y;
+
 	//LOG(@"(%d, %d) <- sendmouse(%d, %d)", (int)p.x, (int)p.y, b, scroll);
 
 	gfx_mousetrack(self.client, (int)p.x, (int)p.y, b, scroll, msec());
@@ -856,40 +945,46 @@ mousebuttons(void)
  * Called from an RPC thread with no client lock held.
  */
 static void
-rpc_setmouse(Client *c, Point p)
+rpc_setmouse(Client *c, Point q)
 {
 	DrawView *view;
 
 	view = (__bridge DrawView*)c->view;
 	dispatch_async(dispatch_get_main_queue(), ^(void){
-		[view setmouse:p];
+		[view setmouse:q];
 	});
 }
 
-- (void)setmouse:(Point)p
+- (void)setmouse:(Point)q
 {
 	@autoreleasepool{
-		NSPoint q;
+		NSPoint p;
 
-		LOG(@"setmouse(%d,%d)", p.x, p.y);
-		q = [self.window convertPointFromBacking:NSMakePoint(p.x, p.y)];
-		LOG(@"(%g, %g) <- fromBacking", q.x, q.y);
-		q = [self convertPoint:q toView:nil];
-		LOG(@"(%g, %g) <- toWindow", q.x, q.y);
-		q = [self.window convertPointToScreen:q];
-		LOG(@"(%g, %g) <- toScreen", q.x, q.y);
+		/* Client image pixels → centers of view pixels. */
+		p.x = q.x - self.img->r.min.x + 0.5;
+		p.y = self.img->r.max.y - q.y - 0.5;
+		/* Physical view pixels → view points. */
+		p = [self convertPointFromBacking:p];
+		/* View points → window points. */
+		p = [self convertPoint:p toView:nil];
+		_warptarget = p;
+		/* Window points → screen space points. */
+		p = [self.window convertPointToScreen:p];
 		/*
-		 * Quartz has the origin of the "global display coordinate space"
-		 * at the top left of the primary screen (not to be confused with
-		 * the main screen) with y increasing downward, while Cocoa has the
-		 * origin at the bottom left of the primary screen with y increasing
-		 * upward. We flip the coordinate with a negative sign and shift
-		 * upward by the height of the primary screen.
+		 * Cocoa screen space points → Quartz global display space points.
+		 * Both coordinate systems originate at the primary screen (not to
+		 * be confused with the main screen): at its bottom left corner with
+		 * Y increasing upward in the former, and at its top left corner
+		 * with Y increasing downward in the latter.
 		 */
-		q.y = NSScreen.screens[0].frame.size.height - q.y;
-		LOG(@"(%g, %g) <- setmouse", q.x, q.y);
-		CGWarpMouseCursorPosition(NSPointToCGPoint(q));
-		CGAssociateMouseAndMouseCursorPosition(true);
+		p.y = NSMaxY(NSScreen.screens[0].frame) - p.y;
+
+		//LOG(@"(%.2f, %.2f) <- setmouse(%d, %d)", p.x, p.y, q.x, q.y);
+
+		/* Takes effect immediately thanks to _nodelayevents (see init): */
+		CGWarpMouseCursorPosition(NSPointToCGPoint(p));
+		_warptime = NSProcessInfo.processInfo.systemUptime;
+		_warped = YES;
 	}
 }
 
