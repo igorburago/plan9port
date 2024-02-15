@@ -859,6 +859,14 @@ texttype(Text *t, Rune r)
 			q0 = textbspos(t, q1, KctrlA);
 			if(q0 >= q1)
 				goto Insertrunes;
+			/*
+			 * Leading whitespace on the first line of a tag is never an indentation,
+			 * so do not carry it over to the second line with autoindent. (It may
+			 * occur due to a relative file path starting with whitespace or, more
+			 * commonly, an empty path exposing the following space separator.)
+			 */
+			if(t->what==Tag && q0==0)
+				goto Insertrunes;
 			rp = runemalloc(1+q1-q0);
 			nr = 0;
 			rp[nr++] = r;
