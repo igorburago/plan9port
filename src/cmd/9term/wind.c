@@ -199,9 +199,9 @@ wclose(Window *w)
 void
 winctl(void *arg)
 {
-	Rune *rp, *bp, *up, *kbdr;
+	Rune *kbdr, *rp;
 	uint qh;
-	int nr, nb, c, wid, i, npart, initial, lastb, scrolling;
+	int nr, nb, c, wid, i, k, npart, lastb, scrolling;
 	char *s, *t, part[UTFmax];
 	Window *w;
 	Mousestate *mp, m;
@@ -254,9 +254,9 @@ winctl(void *arg)
 			alts[WMouseread].op = CHANSND;
 		else
 			alts[WMouseread].op = CHANNOP;
-		//	if(!w->scrolling && !w->mouseopen && w->qh>w->org+w->f.nchars)
-		//		alts[WCwrite].op = CHANNOP;
-		//	else
+		//if(!w->scrolling && !w->mouseopen && w->qh>w->org+w->f.nchars)
+		//	alts[WCwrite].op = CHANNOP;
+		//else
 		alts[WCwrite].op = CHANSND;
 		if(w->deleted || !w->wctlready)
 			alts[WWread].op = CHANNOP;
@@ -308,9 +308,12 @@ winctl(void *arg)
 				wmousectl(w);
 			break;
 		case WMouseread:
-			/* send a queued event or, if the queue is empty, the current state */
-			/* if the queue has filled, we discard all the events it contained. */
-			/* the intent is to discard frantic clicking by the user during long latencies. */
+			/*
+			 * Send a queued event or, if the queue is empty, the current state.
+			 * If the queue has filled, we discard all the events it contained.
+			 * The intent is to discard frantic clicking by the user during long
+			 * latencies.
+			 */
 			w->mouse.qfull = FALSE;
 			if(w->mouse.wi != w->mouse.ri){
 				m = w->mouse.queue[w->mouse.ri];
@@ -338,48 +341,42 @@ winctl(void *arg)
 			recv(cwm.cw, &pair);
 			rp = pair.s;
 			nr = pair.ns;
-			bp = rp;
-			up = rp;
-			initial = 0;
+			qh = w->qh;
+			k = 0;
 			for(i=0; i<nr; i++){
-				switch(*bp){
+				switch(rp[i]){
 				case 0:
 					break;
 				case '\b':
-					if(up == rp)
-						initial++;
-					else
-						--up;
+					if(k > 0)
+						k--;
+					else if(qh > 0)
+						qh--;
 					break;
 				case '\r':
-					while(i<nr-1 && *(bp+1) == '\r'){
-						bp++;
+					while(i<nr-1 && rp[i+1]=='\r')
 						i++;
+					if(i == nr-1)
+						rp[k++] = '\n';
+					else if(rp[i+1] != '\n'){
+						while(k>0 && rp[k-1]!='\n')
+							k--;
+						if(k == 0)
+							qh = wbspos(w, qh, KctrlA);
 					}
-					if(i<nr-1 && *(bp+1) != '\n'){
-						while(up > rp && *(up-1) != '\n')
-							up--;
-						if(up == rp)
-							initial = wbswidth(w, '\r');
-					}else if(i == nr-1)
-						*up++ = '\n';
 					break;
 				default:
-					*up++ = *bp;
+					rp[k++] = rp[i];
 					break;
 				}
-				bp++;
 			}
-			if(initial){
-				if(initial > w->qh)
-					initial = w->qh;
-				qh = w->qh - initial;
-				wdelete(w, qh, qh+initial);
+			nr = k;
+			if(qh < w->qh){
+				wdelete(w, qh, w->qh);
 				w->qh = qh;
 			}
-			nr = up - rp;
-			scrolling = w->scrolling && w->org <= w->qh && w->qh <= w->org + w->f.nchars;
-			w->qh = winsert(w, rp, nr, w->qh)+nr;
+			scrolling = (w->scrolling && w->org<=w->qh && w->qh<=w->org+w->f.nchars);
+			w->qh = winsert(w, rp, nr, w->qh) + nr;
 			if(scrolling)
 				wshow(w, w->qh);
 			wsetselect(w, w->q0, w->q1);
@@ -404,13 +401,13 @@ winctl(void *arg)
 				c = t[i];	/* knows break characters fit in a byte */
 				i += wid;
 				if(!w->rawing && (c=='\n' || c==KctrlD)){
-				/*	if(c == KctrlD) */
-				/*		i--; */
+					//if(c == KctrlD)
+					//	i--;
 					break;
 				}
 			}
-		/*	if(i==nb && w->qh<w->nr && w->r[w->qh]==KctrlD) */
-		/*		w->qh++; */
+			//if(i==nb && w->qh<w->nr && w->r[w->qh]==KctrlD)
+			//	w->qh++;
 			if(i > nb){
 				npart = i-nb;
 				memmove(part, t+nb, npart);
@@ -578,11 +575,44 @@ namecomplete(Window *w)
 	return rp;
 }
 
+uint
+wbspos(Window *w, uint q0, Rune bs)
+{
+	int inword;
+	uint qmin, q;
+	Rune r;
+
+	qmin = 0;
+	if(q0 >= w->qh)
+		qmin = w->qh;
+	if(bs == KctrlH)	/* ^H: erase character */
+		return q0 - (q0>qmin);
+	inword = FALSE;
+	for(q=q0; q>qmin; q--){
+		r = w->r[q-1];
+		if(r == '\n'){
+			/*
+			 * When started from a newline, both ^W and ^U skip it
+			 * before stopping, unlike ^A which stays put instead.
+			 */
+			if(q==q0 && bs!=KctrlA)
+				q--;
+			break;
+		}
+		if(bs == KctrlW){	/* ^W: erase word */
+			if(isalnum(r))
+				inword = TRUE;
+			else if(inword)
+				break;
+		}
+	}
+	return q;
+}
+
 void
 wkeyctl(Window *w, Rune r)
 {
-	uint q0, q1;
-	int nb, nr;
+	uint q0, q1, nr;
 	Rune *rp;
 
 	if(r == 0)
@@ -644,10 +674,8 @@ wkeyctl(Window *w, Rune r)
 			}
 			return;
 		case KctrlA:	/* ^A: beginning of line */
-			if(w->q0==0 || w->q0==w->qh || w->r[w->q0-1]=='\n')
-				return;
-			nb = wbswidth(w, KctrlU);
-			wsetselect(w, w->q0-nb, w->q0-nb);
+			q0 = wbspos(w, w->q0, KctrlA);
+			wsetselect(w, q0, q0);
 			wshow(w, w->q0);
 			return;
 		case KctrlE:	/* ^E: end of line */
@@ -723,19 +751,14 @@ wkeyctl(Window *w, Rune r)
 	case KctrlH:	/* ^H: erase character */
 	case KctrlU:	/* ^U: erase line */
 	case KctrlW:	/* ^W: erase word */
-		if(w->q0==0 || w->q0==w->qh)
-			return;
-		nb = wbswidth(w, r);
 		q1 = w->q0;
-		q0 = q1-nb;
-		if(q0 < w->org){
+		q0 = wbspos(w, q1, r);
+		if(q0 < w->org)
 			q0 = w->org;
-			nb = q1-q0;
-		}
-		if(nb > 0){
-			wdelete(w, q0, q0+nb);
-			wsetselect(w, q0, q0);
-		}
+		if(q0 >= q1)
+			return;
+		wdelete(w, q0, q1);
+		wsetselect(w, q0, q0);
 		w->iq1 = w->q0;
 		return;
 	}
@@ -773,40 +796,6 @@ wrepaint(Window *w)
 		wsetcursor(w, 0);
 	}else
 		wborder(w, wscale(w, Unselborder));
-}
-
-int
-wbswidth(Window *w, Rune c)
-{
-	uint q, eq, stop;
-	Rune r;
-	int skipping;
-
-	/* there is known to be at least one character to erase */
-	if(c == KctrlH)	/* ^H: erase character */
-		return 1;
-	q = w->q0;
-	stop = 0;
-	if(q > w->qh)
-		stop = w->qh;
-	skipping = TRUE;
-	while(q > stop){
-		r = w->r[q-1];
-		if(r == '\n'){		/* eat at most one more character */
-			if(q == w->q0 && c != '\r')	/* eat the newline */
-				--q;
-			break;
-		}
-		if(c == KctrlW){	/* ^W: erase word */
-			eq = isalnum(r);
-			if(eq && skipping)	/* found one; stop skipping */
-				skipping = FALSE;
-			else if(!eq && !skipping)
-				break;
-		}
-		--q;
-	}
-	return w->q0-q;
 }
 
 void

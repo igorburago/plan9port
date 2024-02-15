@@ -141,7 +141,7 @@ void	waddraw(Window*, Rune*, int);
 uint	wbacknl(Window*, uint, uint);
 void	wborder(Window*, int);
 void	wbottomme(Window*);
-int	wbswidth(Window*, Rune);
+uint	wbspos(Window*, uint, Rune);
 int	wclickmatch(Window*, int, int, int, uint*);
 int	wclose(Window*);
 void	wclosewin(Window*);
