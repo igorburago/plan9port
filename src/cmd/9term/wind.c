@@ -468,40 +468,42 @@ interruptproc(void *v)
 static void
 wshowpathcompl(Window *w, Completion *c)
 {
-	int i;
 	Fmt f;
+	int i, nr;
 	Rune *rp;
-	uint nr, qline, q0;
-	char *s;
+	uint qins, q0;
 
 	runefmtstrinit(&f);
-	if (c->nmatch == 0)
-		s = "[no matches in ";
-	else
-		s = "[";
-	if(c->nfile > 32)
-		fmtprint(&f, "%s%d files]\n", s, c->nfile);
-	else{
-		fmtprint(&f, "%s", s);
-		for(i=0; i<c->nfile; i++){
-			if(i > 0)
-				fmtprint(&f, " ");
-			fmtprint(&f, "%s", c->filename[i]);
-		}
-		fmtprint(&f, "]\n");
+	fmtstrcpy(&f, "[");
+	if(c->nmatch == 0){
+		fmtstrcpy(&f, "no matches");
+		if(c->nfile > 0)
+			fmtstrcpy(&f, " in ");
 	}
-	/* place text at beginning of line before host point */
-	qline = w->qh;
-	while(qline>0 && w->r[qline-1] != '\n')
-		qline--;
-
+	if(c->nfile > 32)
+		fmtprint(&f, "%d files", c->nfile);
+	else
+		for(i=0; i<c->nfile; i++)
+			fmtprint(&f, i==0 ? "%s" : " %s", c->filename[i]);
+	fmtstrcpy(&f, "]\n");
+	nr = f.nfmt;
 	rp = runefmtstrflush(&f);
-	nr = runestrlen(rp);
 
-	q0 = w->q0;
-	q0 += winsert(w, rp, runestrlen(rp), qline) - qline;
+	/*
+	 * Put completions on a new line above the host point or the cursor,
+	 * in case the latter is behind the former in the text.
+	 */
+	qins = w->q0;
+	if(qins >= w->qh)
+		qins = w->qh;
+	while(qins>0 && w->r[qins-1]!='\n')
+		qins--;
+
+	q0 = w->q0 - qins + nr;
+	q0 += winsert(w, rp, nr, qins);
 	free(rp);
-	wsetselect(w, q0+nr, q0+nr);
+	wsetselect(w, q0, q0);
+	wshow(w, q0);
 }
 
 /*
