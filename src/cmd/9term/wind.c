@@ -465,26 +465,8 @@ interruptproc(void *v)
 	free(notefd);
 }
 
-int
-windfilewidth(Window *w, uint q0, int oneelement)
-{
-	uint q;
-	Rune r;
-
-	q = q0;
-	while(q > 0){
-		r = w->r[q-1];
-		if(r<=' ')
-			break;
-		if(oneelement && r=='/')
-			break;
-		--q;
-	}
-	return q0-q;
-}
-
-void
-showcandidates(Window *w, Completion *c)
+static void
+wshowpathcompl(Window *w, Completion *c)
 {
 	int i;
 	Fmt f;
@@ -522,57 +504,61 @@ showcandidates(Window *w, Completion *c)
 	wsetselect(w, q0+nr, q0+nr);
 }
 
-Rune*
-namecomplete(Window *w)
+static Rune*
+wcompletepath(Window *w, uint *ninsp)
 {
-	int nstr, npath;
-	Rune *rp, *path, *str;
+	enum { Maxcontext = 1024 };
+	char Dot[] = ".";
 	Completion *c;
-	char *s, *dir, *root;
+	Rune *rdir, *rbase, *ins;
+	char *dir, *base;
+	int n, nrdir, nrbase;
+	uint q;
+	Rune r;
 
-	/* control-f: filename completion; works back to white space or / */
+	*ninsp = 0;
 	if(w->q0<w->nr && w->r[w->q0]>' ')	/* must be at end of word */
 		return nil;
-	nstr = windfilewidth(w, w->q0, TRUE);
-	str = runemalloc(nstr);
-	runemove(str, w->r+(w->q0-nstr), nstr);
-	npath = windfilewidth(w, w->q0-nstr, FALSE);
-	path = runemalloc(npath);
-	runemove(path, w->r+(w->q0-nstr-npath), npath);
-	rp = nil;
 
-	/* is path rooted? if not, we need to make it relative to window path */
-	if(npath>0 && path[0]=='/'){
-		dir = malloc(UTFmax*npath+1);
-		sprint(dir, "%.*S", npath, path);
-	}else{
-		if(strcmp(w->dir, "") == 0)
-			root = ".";
-		else
-			root = w->dir;
-		dir = malloc(strlen(root)+1+UTFmax*npath+1);
-		sprint(dir, "%s/%.*S", root, npath, path);
+	n = nrdir = 0;
+	for(q=w->q0; q>0; q--){
+		r = w->r[q-1];
+		if(r <= ' ')
+			break;
+		if(++n > Maxcontext)
+			return nil;
+		nrdir += (nrdir>0 || r=='/');
 	}
-	dir = cleanname(dir);
+	nrbase = n - nrdir;
+	rdir = w->r + q;
+	rbase = rdir + nrdir;
 
-	s = smprint("%.*S", nstr, str);
-	c = complete(dir, s);
-	free(s);
-	if(c == nil)
-		goto Return;
+	/* If the path is relative, prepend the window directory (unless empty). */
+	if(nrdir>0 && (rdir[0]=='/' || w->dir[0]=='\0'))
+		dir = runetobyte(rdir, nrdir, &n);
+	else if(w->dir[0] != '\0'){
+		dir = smprint("%s/%.*S", w->dir, nrdir, rdir);
+		if(dir == nil)
+			return nil;
+	}else	/* nrdir==0 && w->dir[0]=='\0' */
+		dir = Dot;
+	cleanname(dir);
+	base = runetobyte(rbase, nrbase, &n);
 
-	if(!c->advance)
-		showcandidates(w, c);
+	ins = nil;
+	c = complete(dir, base);
+	if(c != nil){
+		if(c->advance)
+			ins = runesmprint("%s%un", c->string, ninsp);
+		else
+			wshowpathcompl(w, c);
+	}
 
-	if(c->advance)
-		rp = runesmprint("%s", c->string);
-
-  Return:
 	freecompletion(c);
-	free(dir);
-	free(path);
-	free(str);
-	return rp;
+	free(base);
+	if(dir != Dot)
+		free(dir);
+	return ins;
 }
 
 uint
@@ -738,12 +724,10 @@ wkeyctl(Window *w, Rune r)
 		return;
 	case KctrlF:	/* ^F: file name completion */
 	case Kins:		/* Insert: file name completion */
-		rp = namecomplete(w);
+		rp = wcompletepath(w, &nr);
 		if(rp == nil)
 			return;
-		nr = runestrlen(rp);
-		q0 = w->q0;
-		q0 = winsert(w, rp, nr, q0);
+		q0 = winsert(w, rp, nr, w->q0);
 		wshow(w, q0+nr);
 		w->iq1 = w->q0;
 		free(rp);
@@ -763,8 +747,7 @@ wkeyctl(Window *w, Rune r)
 		return;
 	}
 	/* otherwise ordinary character; just insert */
-	q0 = w->q0;
-	q0 = winsert(w, &r, 1, q0);
+	q0 = winsert(w, &r, 1, w->q0);
 	wshow(w, q0+1);
 	w->iq1 = w->q0;
 }
