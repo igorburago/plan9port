@@ -15,9 +15,9 @@
 
 Image	*tagcols[NCOL];
 Image	*textcols[NCOL];
-static Rune Ldot[] = { '.', 0 };
 
-enum{
+enum
+{
 	TABDIR = 3	/* width of tabs in directory windows */
 };
 
@@ -562,113 +562,90 @@ textbspos(Text *t, uint q0, Rune bs)
 	return q;
 }
 
-int
-textfilewidth(Text *t, uint q0, int oneelement)
+static Runestr
+textcompletepath(Text *t)
 {
+	enum { Maxcontext = 1024 };
+	char Dot[] = ".";
+	Completion *c;
+	Runestr ins, rdir;
+	char *dir, *base;
+	int n, nrdir, nrbase, i;
 	uint q;
 	Rune r;
 
-	q = q0;
-	while(q > 0){
+	ins = runestr(nil, 0);
+	if(t->q0<t->file->b.nc && textreadc(t, t->q0)>' ')	/* must be at end of word */
+		return ins;
+
+	n = nrdir = 0;
+	for(q=t->q0; q>0; q--){
 		r = textreadc(t, q-1);
 		if(r <= ' ')
 			break;
-		if(oneelement && r=='/')
-			break;
-		--q;
+		if(++n > Maxcontext)
+			return ins;
+		nrdir += (nrdir>0 || r=='/');
 	}
-	return q0-q;
-}
+	nrbase = n - nrdir;
 
-Rune*
-textcomplete(Text *t)
-{
-	int i, nstr, npath;
-	uint q;
-	Rune tmp[200];
-	Rune *str, *path;
-	Rune *rp;
-	Completion *c;
-	char *s, *dirs;
-	Runestr dir;
+	if(nrdir>0 && textreadc(t, q)=='/'){	/* absolute path */
+		dir = emalloc(nrdir*UTFmax+1);
+		n = 0;
+		for(i=0; i<nrdir; i++){
+			r = textreadc(t, q++);
+			n += runetochar(dir+n, &r);
+		}
+		dir[n] = 0;
+		cleanname(dir);
+	}else{	/* path relative to the window directory */
+		rdir = runestr(runemalloc(nrdir), nrdir);
+		for(i=0; i<rdir.nr; i++)
+			rdir.r[i] = textreadc(t, q++);
+		rdir = dirname(t, rdir.r, rdir.nr);
+		if(rdir.nr > 0)
+			dir = runetobyte(rdir.r, rdir.nr);
+		else	/* both nrdir==0 and the window directory is empty */
+			dir = Dot;
+		free(rdir.r);
+	}
 
-	/* control-f: filename completion; works back to white space or / */
-	if(t->q0<t->file->b.nc && textreadc(t, t->q0)>' ')	/* must be at end of word */
-		return nil;
-	nstr = textfilewidth(t, t->q0, TRUE);
-	str = runemalloc(nstr);
-	npath = textfilewidth(t, t->q0-nstr, FALSE);
-	path = runemalloc(npath);
+	base = emalloc(nrbase*UTFmax+1);
+	n = 0;
+	for(i=0; i<nrbase; i++){
+		r = textreadc(t, q++);
+		n += runetochar(base+n, &r);
+	}
+	base[n] = 0;
 
-	c = nil;
-	rp = nil;
-	dirs = nil;
-
-	q = t->q0-nstr;
-	for(i=0; i<nstr; i++)
-		str[i] = textreadc(t, q++);
-	q = t->q0-nstr-npath;
-	for(i=0; i<npath; i++)
-		path[i] = textreadc(t, q++);
-	/* is path rooted? if not, we need to make it relative to window path */
-	if(npath>0 && path[0]=='/')
-		dir = runestr(path, npath);
+	c = complete(dir, base);
+	if(c == nil)
+		warning(nil, "cannot complete at %s: %r\n", dir);
+	else if(c->advance)
+		ins.r = runesmprint("%s%n", c->string, &ins.nr);
 	else{
-		dir = dirname(t, nil, 0);
-		if(dir.nr + 1 + npath > nelem(tmp)){
-			free(dir.r);
-			goto Return;
-		}
-		if(dir.nr == 0){
-			dir.nr = 1;
-			dir.r = runestrdup(Ldot);
-		}
-		runemove(tmp, dir.r, dir.nr);
-		tmp[dir.nr] = '/';
-		runemove(tmp+dir.nr+1, path, npath);
-		free(dir.r);
-		dir.r = tmp;
-		dir.nr += 1+npath;
-		dir = cleanrname(dir);
-	}
-
-	s = smprint("%.*S", nstr, str);
-	dirs = smprint("%.*S", dir.nr, dir.r);
-	c = complete(dirs, s);
-	free(s);
-	if(c == nil){
-		warning(nil, "error attempting completion: %r\n");
-		goto Return;
-	}
-
-	if(!c->advance){
-		warning(nil, "%.*S%s%.*S*%s\n",
-			dir.nr, dir.r,
-			dir.nr>0 && dir.r[dir.nr-1]!='/' ? "/" : "",
-			nstr, str,
-			c->nmatch ? "" : ": no matches in:");
+		/* Only if dir is root can it end with a slash after name cleaning. */
+		warning(nil, "%s%s%s*%s%s\n",
+			dir, dir[0]=='/' && dir[1]=='\0' ? "" : "/", base,
+			c->nmatch==0 ? ": no matches" : "",
+			c->nmatch==0 && c->nfile>0 ? " in:" : "");
 		for(i=0; i<c->nfile; i++)
 			warning(nil, " %s\n", c->filename[i]);
 	}
 
-	if(c->advance)
-		rp = runesmprint("%s", c->string);
-	else
-		rp = nil;
-  Return:
 	freecompletion(c);
-	free(dirs);
-	free(str);
-	free(path);
-	return rp;
+	free(base);
+	if(dir != Dot)
+		free(dir);
+	return ins;
 }
 
 void
 texttype(Text *t, Rune r)
 {
-	uint q0, q1, nr, nb;
+	uint q0, q1, nb;
 	int n, i;
-	Rune *rp;
+	Runestr rs;
 	Text *u;
 
 	if(t->what!=Body && t->what!=Tag && r=='\n')
@@ -676,8 +653,7 @@ texttype(Text *t, Rune r)
 	if(t->what == Tag)
 		t->w->tagsafe = FALSE;
 
-	nr = 1;
-	rp = &r;
+	rs = runestr(&r, 1);
 	switch(r){
 	case Kup:
 		winscroll(t->w, t, -(int)max(t->fr.maxlines/3, 1));
@@ -799,13 +775,12 @@ texttype(Text *t, Rune r)
 	case KctrlF:	/* ^F: complete */
 	case Kins:
 		typecommit(t);
-		rp = textcomplete(t);
-		if(rp == nil)
+		rs = textcompletepath(t);
+		if(rs.r == nil)
 			return;
-		nr = runestrlen(rp);
 		goto Insertrunes;
 	case Kesc:
-		if(t->eq0 != ~0) {
+		if(t->eq0 != ~0){
 			if(t->eq0 <= t->q0)
 				textsetselect(t, t->eq0, t->q0);
 			else
@@ -867,14 +842,14 @@ texttype(Text *t, Rune r)
 			 */
 			if(t->what==Tag && q0==0)
 				goto Insertrunes;
-			rp = runemalloc(1+q1-q0);
-			nr = 0;
-			rp[nr++] = r;
+			rs.r = runemalloc(1+q1-q0);
+			rs.nr = 0;
+			rs.r[rs.nr++] = r;
 			for(; q0<q1; q0++){
 				r = textreadc(t, q0);
 				if(r!=' ' && r!='\t')
 					break;
-				rp[nr++] = r;
+				rs.r[rs.nr++] = r;
 			}
 		}
 		goto Insertrunes;
@@ -890,28 +865,27 @@ Insertrunes:
 		else if(t->q0 != u->cq0+u->ncache)
 			error("text.type cq1");
 		/*
-		 * Change the tag before we add to ncache,
-		 * so that if the window body is resized the
-		 * commit will not find anything in ncache.
+		 * Change the tag before we add to ncache, so that if the window
+		 * body is resized, the commit will not find anything in ncache.
 		 */
-		if(u->what==Body && u->ncache == 0){
+		if(u->what==Body && u->ncache==0){
 			u->needundo = TRUE;
 			winsettag(t->w);
 			u->needundo = FALSE;
 		}
-		textinsert(u, t->q0, rp, nr, FALSE);
+		textinsert(u, t->q0, rs.r, rs.nr, FALSE);
 		if(u != t)
 			textsetselect(u, u->q0, u->q1);
-		if(u->ncache+nr > u->ncachealloc){
-			u->ncachealloc += 10 + nr;
+		if(u->ncache+rs.nr > u->ncachealloc){
+			u->ncachealloc += 10 + rs.nr;
 			u->cache = runerealloc(u->cache, u->ncachealloc);
 		}
-		runemove(u->cache+u->ncache, rp, nr);
-		u->ncache += nr;
+		runemove(u->cache+u->ncache, rs.r, rs.nr);
+		u->ncache += rs.nr;
 	}
-	if(rp != &r)
-		free(rp);
-	textsetselect(t, t->q0+nr, t->q0+nr);
+	if(rs.r != &r)
+		free(rs.r);
+	textsetselect(t, t->q0+rs.nr, t->q0+rs.nr);
 	if(r=='\n' && t->w!=nil)
 		wincommit(t->w, t);
 	t->iq1 = t->q0;

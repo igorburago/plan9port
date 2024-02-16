@@ -492,22 +492,22 @@ dirname(Text *t, Rune *r, int n)
 		goto Rescue;
 	b = parsetag(t->w, n, &i);
 	slash = -1;
-	for(i--; i >= 0; i--){
+	for(i--; i>=0; i--)
 		if(b[i] == '/'){
 			slash = i;
 			break;
 		}
-	}
 	if(slash < 0)
 		goto Rescue;
-	runemove(b+slash+1, r, n);
+	if(n > 0)
+		runemove(b+slash+1, r, n);
 	free(r);
 	return cleanrname(runestr(b, slash+1+n));
 
-    Rescue:
+Rescue:
 	free(b);
 	tmp = runestr(r, n);
-	if(r)
+	if(r != nil)
 		return cleanrname(tmp);
 	return tmp;
 }
