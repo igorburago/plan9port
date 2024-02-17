@@ -750,7 +750,7 @@ texttype(Text *t, Rune r)
 			filemark(t->file);
 		}
 		cut(t, t, nil, TRUE, TRUE, nil, 0);
-		textshow(t, t->q0, t->q0, 1);
+		textshow(t, t->q0, t->q0, TRUE);
 		t->iq1 = t->q0;
 		return;
 	case Kcmd+'v':	/* %V: paste */
@@ -760,7 +760,7 @@ texttype(Text *t, Rune r)
 			filemark(t->file);
 		}
 		paste(t, t, nil, TRUE, FALSE, nil, 0);
-		textshow(t, t->q0, t->q1, 1);
+		textshow(t, t->q0, t->q1, TRUE);
 		t->iq1 = t->q1;
 		return;
 	}
@@ -770,7 +770,7 @@ texttype(Text *t, Rune r)
 		cut(t, t, nil, TRUE, TRUE, nil, 0);
 		t->eq0 = ~0;
 	}
-	textshow(t, t->q0, t->q0, 1);
+	textshow(t, t->q0, t->q0, TRUE);
 	switch(r){
 	case KctrlF:	/* ^F: complete */
 	case Kins:
@@ -885,7 +885,7 @@ Insertrunes:
 	}
 	if(rs.r != &r)
 		free(rs.r);
-	textsetselect(t, t->q0+rs.nr, t->q0+rs.nr);
+	textshow(t, t->q0+rs.nr, t->q0+rs.nr, TRUE);
 	if(r=='\n' && t->w!=nil)
 		wincommit(t->w, t);
 	t->iq1 = t->q0;
