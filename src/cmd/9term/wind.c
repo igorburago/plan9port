@@ -504,6 +504,17 @@ wshowpathcompl(Window *w, Completion *c)
 	wsetselect(w, q0+nr, q0+nr);
 }
 
+/*
+ * Besides whitespace, exclude some runes that are unlikely to occur in
+ * a typical path, but are likely to surround one in a shell context or
+ * in general writing.
+ */
+static int
+ispathc(Rune r)
+{
+	return r>' ' && utfrune("`'\"=:;<|>{}()[]&#!?,", r)==nil;
+}
+
 static Rune*
 wcompletepath(Window *w, uint *ninsp)
 {
@@ -517,13 +528,13 @@ wcompletepath(Window *w, uint *ninsp)
 	Rune r;
 
 	*ninsp = 0;
-	if(w->q0<w->nr && w->r[w->q0]>' ')	/* must be at end of word */
+	if(w->q0<w->nr && ispathc(w->r[w->q0]))
 		return nil;
 
 	n = nrdir = 0;
 	for(q=w->q0; q>0; q--){
 		r = w->r[q-1];
-		if(r <= ' ')
+		if(!ispathc(r))
 			break;
 		if(++n > Maxcontext)
 			return nil;
