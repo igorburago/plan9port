@@ -562,6 +562,17 @@ textbspos(Text *t, uint q0, Rune bs)
 	return q;
 }
 
+/*
+ * Besides whitespace, exclude some runes that are unlikely to occur in
+ * a typical path, but are likely to surround one in a shell context or
+ * in general writing.
+ */
+static int
+ispathc(Rune r)
+{
+	return r>' ' && utfrune("`'\"=:;<|>{}()[]&#!?,", r)==nil;
+}
+
 static Runestr
 textcompletepath(Text *t)
 {
@@ -575,13 +586,13 @@ textcompletepath(Text *t)
 	Rune r;
 
 	ins = runestr(nil, 0);
-	if(t->q0<t->file->b.nc && textreadc(t, t->q0)>' ')	/* must be at end of word */
+	if(t->q0<t->file->b.nc && ispathc(textreadc(t, t->q0)))
 		return ins;
 
 	n = nrdir = 0;
 	for(q=t->q0; q>0; q--){
 		r = textreadc(t, q-1);
-		if(r <= ' ')
+		if(!ispathc(r))
 			break;
 		if(++n > Maxcontext)
 			return ins;
