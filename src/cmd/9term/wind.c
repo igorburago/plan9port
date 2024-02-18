@@ -468,6 +468,7 @@ interruptproc(void *v)
 static void
 wshowpathcompl(Window *w, Completion *c)
 {
+	enum { Maxfiles = 30 };
 	Fmt f;
 	int i, nr;
 	Rune *rp;
@@ -480,11 +481,15 @@ wshowpathcompl(Window *w, Completion *c)
 		if(c->nfile > 0)
 			fmtstrcpy(&f, " in ");
 	}
-	if(c->nfile > 32)
-		fmtprint(&f, "%d files", c->nfile);
-	else
-		for(i=0; i<c->nfile; i++)
-			fmtprint(&f, i==0 ? "%s" : " %s", c->filename[i]);
+	for(i=0; i<c->nfile; i++){
+		if(i > 0)
+			fmtrune(&f, ' ');
+		if(i >= Maxfiles){
+			fmtprint(&f, "and %d more", c->nfile-i);
+			break;
+		}
+		fmtstrcpy(&f, c->filename[i]);
+	}
 	fmtstrcpy(&f, "]\n");
 	nr = f.nfmt;
 	rp = runefmtstrflush(&f);
