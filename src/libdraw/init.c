@@ -13,12 +13,21 @@ Screen	*_screen;
 int		debuglockdisplay = 1;
 char	*winsize;
 
-int		visibleclicks = 0;
-Image	*mousebuttons;
-Image	*mousesave;
 Mouse	_drawmouse;
+static struct{
+	int		on;
+	int		dpi;
+	Point		offset;
+	Rectangle	butr[3];
+	Image		*hint;
+	Image		*back;
+} visclicks;
 
 extern void	initmousescrollscaling(void);	/* see scroll.c */
+
+static void	initvisibleclicks(void);
+static Point	drawvisibleclicks(void);
+static void	undrawvisibleclicks(Point);
 
 void
 needdisplay(void)
@@ -42,7 +51,7 @@ drawshutdown(void)
 int
 geninitdraw(char *devdir, void (*error)(Display*, char*), char *fontname, char *label, char *windir, int ref)
 {
-	char *fontnamealloc, *p;
+	char *fontnamealloc;
 
 	if(label == nil)
 		label = argv0;
@@ -88,22 +97,7 @@ geninitdraw(char *devdir, void (*error)(Display*, char*), char *fontname, char *
 	flushimage(display, 1);
 
 	initmousescrollscaling();
-
-	p = getenv("visibleclicks");
-	visibleclicks = p != nil && *p == '1';
-	if(visibleclicks) {
-		Font *f;
-
-		f = display->defaultfont;
-		mousebuttons = allocimage(display, Rect(0,0,64,22), screen->chan, 0, DWhite);
-		border(mousebuttons, mousebuttons->r, 1, display->black, ZP);
-		border(mousebuttons, Rect(0, 0, 22, 22), 1, display->black, ZP);
-		border(mousebuttons, Rect(42, 0, 64, 22), 1, display->black, ZP);
-		string(mousebuttons, Pt(10-stringwidth(display->defaultfont, "1")/2, 11-f->height/2), display->black, ZP, display->defaultfont, "1");
-		string(mousebuttons, Pt(21+10-stringwidth(display->defaultfont, "2")/2, 11-f->height/2), display->black, ZP, display->defaultfont, "2");
-		string(mousebuttons, Pt(42+10-stringwidth(display->defaultfont, "3")/2, 11-f->height/2), display->black, ZP, display->defaultfont, "3");
-		mousesave = allocimage(display, Rect(0,0,64,22), screen->chan, 0, 0);
-	}
+	initvisibleclicks();
 
 	/*
 	 * I don't see any reason to go away gracefully, and if some other proc
@@ -185,7 +179,7 @@ getimage0(Display *d, Image *image)
 	a[1] = 1;
 	a[2] = 'd';
 	d->dpi = 100;
-	if(flushimage(d, 0) >= 0 && _displayrddraw(d, info, 12) == 12)
+	if(flushimage(d, 0)>=0 && _displayrddraw(d, info, 12)==12)
 		d->dpi = atoi(info);
 
 	return image;
@@ -221,15 +215,16 @@ getwindow(Display *d, int ref)
 	screen = _allocwindow(screen, _screen, i->r, ref, DWhite);
 	d->screenimage = screen;
 
-
-	if(d->dpi >= DefaultDPI*3/2) {
-		for(f=d->firstfont; f != nil; f=f->next)
+	if(d->dpi >= DefaultDPI*3/2){
+		for(f=d->firstfont; f!=nil; f=f->next)
 			loadhidpi(f);
-	} else {
-		for(f=d->firstfont; f != nil; f=f->next)
-			if(f->lodpi != nil && f->lodpi != f)
+	}else{
+		for(f=d->firstfont; f!=nil; f=f->next)
+			if(f->lodpi!=nil && f->lodpi!=f)
 				swapfont(f, &f->hidpi, &f->lodpi);
 	}
+	if(visclicks.on)
+		initvisibleclicks();
 
 	return 0;
 }
@@ -350,8 +345,7 @@ drawerror(Display *d, char *s)
 	}
 }
 
-static
-int
+static int
 doflush(Display *d)
 {
 	int n;
@@ -362,7 +356,7 @@ doflush(Display *d)
 
 	if(_displaywrdraw(d, d->buf, n) != n){
 		if(_drawdebug)
-			fprint(2, "flushimage fail: d=%p: %r\n", d); /**/
+			fprint(2, "flushimage fail: d=%p: %r\n", d);
 		d->bufp = d->buf;	/* might as well; chance of continuing */
 		return -1;
 	}
@@ -373,29 +367,12 @@ doflush(Display *d)
 int
 flushimage(Display *d, int visible)
 {
-	if(visible == 1 && visibleclicks && mousebuttons && _drawmouse.buttons) {
-		Rectangle r, r1;
-		int ret;
+	int ret, drawclicks;
+	Point p;
 
-		r = mousebuttons->r;
-		r = rectaddpt(r, _drawmouse.xy);
-		r = rectaddpt(r, Pt(-Dx(mousebuttons->r)/2, -Dy(mousebuttons->r)-3));
-		drawop(mousesave, mousesave->r, screen, nil, r.min, S);
-
-		r1 = rectaddpt(Rect(0, 0, 22, 22), r.min);
-		if(_drawmouse.buttons & 1)
-			drawop(screen, r1, mousebuttons, nil, ZP, S);
-		r1 = rectaddpt(r1, Pt(21, 0));
-		if(_drawmouse.buttons & 2)
-			drawop(screen, r1, mousebuttons, nil, Pt(21, 0), S);
-		r1 = rectaddpt(r1, Pt(21, 0));
-		if(_drawmouse.buttons & 4)
-			drawop(screen, r1, mousebuttons, nil, Pt(42, 0), S);
-		ret = flushimage(d, 2);
-		drawop(screen, r, mousesave, nil, ZP, S);
-		return ret;
-	}
-
+	drawclicks = (visible && visclicks.on && _drawmouse.buttons!=0);
+	if(drawclicks)
+		p = drawvisibleclicks();
 	if(visible){
 		*d->bufp++ = 'v';	/* five bytes always reserved for this */
 		if(d->_isnewdisplay){
@@ -403,7 +380,10 @@ flushimage(Display *d, int visible)
 			d->bufp += 4;
 		}
 	}
-	return doflush(d);
+	ret = doflush(d);
+	if(drawclicks)
+		undrawvisibleclicks(p);
+	return ret;
 }
 
 uchar*
@@ -411,7 +391,7 @@ bufimage(Display *d, int n)
 {
 	uchar *p;
 
-	if(n<0 || d == nil || n>d->bufsize){
+	if(n<0 || d==nil || n>d->bufsize){
 		abort();
 		werrstr("bad count in bufimage");
 		return 0;
@@ -427,7 +407,83 @@ bufimage(Display *d, int n)
 int
 scalesize(Display *d, int n)
 {
-	if(d == nil || d->dpi <= DefaultDPI)
+	if(d==nil || d->dpi<=DefaultDPI)
 		return n;
 	return (n*d->dpi+DefaultDPI/2)/DefaultDPI;
+}
+
+static void
+initvisibleclicks(void)
+{
+	char *var;
+	Font *f;
+	Rune c;
+	int bord, w, h, i;
+	Rectangle r;
+	Point p;
+
+	if(display==nil || display->defaultfont==nil){
+		visclicks.on = 0;
+		return;
+	}
+	if(!visclicks.on){
+		var = getenv("visibleclicks");
+		visclicks.on = (var!=nil && var[0]=='1' && var[1]=='\0');
+		free(var);
+		if(!visclicks.on)
+			return;
+	}
+	if(visclicks.dpi == display->dpi)
+		return;
+	freeimage(visclicks.hint);
+	freeimage(visclicks.back);
+
+	bord = scalesize(display, 1);
+	f = display->defaultfont;
+	w = stringwidth(f, "0");
+	h = f->height;
+	/* Add some visually pleasing padding and border on each side. */
+	w += 2*(3*w/5 + 2*bord);
+	h += 2*(h/4 + 2*bord);
+
+	r = Rect(0, 0, 3*w, h);
+	visclicks.hint = allocimage(display, r, screen->chan, 0, DWhite);
+	visclicks.back = allocimage(display, r, screen->chan, 0, DTransparent);
+	if(visclicks.hint==nil || visclicks.back==nil){
+		freeimage(visclicks.hint);
+		freeimage(visclicks.back);
+		visclicks.on = 0;
+		return;
+	}
+	visclicks.offset = Pt(-Dx(r)/2, -Dy(r)-scalesize(display, 3));
+
+	p.y = (h - f->height) / 2;
+	for(c='1', i=0; i<3; i++, c++){
+		r = visclicks.butr[i] = Rect(i*w, 0, (i+1)*w, h);
+		border(visclicks.hint, insetrect(r, bord), bord, display->black, ZP);
+		p.x = r.min.x + (Dx(r)-runestringnwidth(f, &c, 1))/2;
+		runestringn(visclicks.hint, p, display->black, ZP, f, &c, 1);
+	}
+	visclicks.dpi = display->dpi;
+}
+
+static Point
+drawvisibleclicks(void)
+{
+	Point p;
+	int i;
+
+	p = addpt(_drawmouse.xy, visclicks.offset);
+	draw(visclicks.back, visclicks.back->r, screen, nil, p);
+	for(i=0; i<3; i++)
+		if(_drawmouse.buttons & (1<<i))
+			draw(screen, rectaddpt(visclicks.butr[i], p),
+				visclicks.hint, nil, visclicks.butr[i].min);
+	return p;
+}
+
+static void
+undrawvisibleclicks(Point p)
+{
+	draw(screen, rectaddpt(visclicks.back->r, p), visclicks.back, nil, ZP);
 }
