@@ -31,18 +31,18 @@ drawshutdown(void)
 {
 	Display *d;
 
+	if(display == nil)
+		return;
 	d = display;
-	if(d){
-		display = nil;
-		closedisplay(d);
-	}
+	display = nil;
+	closedisplay(d);
 }
 */
 
 int
-geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *label, char *windir, int ref)
+geninitdraw(char *devdir, void (*error)(Display*, char*), char *fontname, char *label, char *windir, int ref)
 {
-	char *p;
+	char *fontnamealloc, *p;
 
 	if(label == nil)
 		label = argv0;
@@ -51,30 +51,29 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 		return -1;
 
 	/*
-	 * Set up default font
+	 * Set up default font. Build fonts with caches==depth of screen,
+	 * for speed. If conversion were faster, we'd use 0 and save memory.
 	 */
-	if(openfont(display, "*default*") == 0) {
+	if(openfont(display, "*default*") == 0){
 		fprint(2, "imageinit: can't open default subfont: %r\n");
-    Error:
-		closedisplay(display);
-		display = nil;
-		return -1;
+		goto Error;
 	}
-	if(fontname == nil)
+	fontnamealloc = nil;
+	if(fontname == nil){
 		fontname = getenv("font");
-
-	/*
-	 * Build fonts with caches==depth of screen, for speed.
-	 * If conversion were faster, we'd use 0 and save memory.
-	 */
-	if(fontname == nil)
-		fontname = strdup("*default*");
-
+		if(fontname==nil || fontname[0]=='\0'){
+			free(fontname);
+			fontname = "*default*";
+		}else
+			fontnamealloc = fontname;
+	}
 	font = openfont(display, fontname);
 	if(font == nil){
 		fprint(2, "imageinit: can't open font %s: %r\n", fontname);
+		free(fontnamealloc);
 		goto Error;
 	}
+	free(fontnamealloc);
 	display->defaultfont = font;
 
 	_screen = allocscreen(display->image, display->white, 0);
@@ -107,13 +106,17 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 	}
 
 	/*
-	 * I don't see any reason to go away gracefully,
-	 * and if some other proc exits holding the display
-	 * lock, this atexit call never finishes.
+	 * I don't see any reason to go away gracefully, and if some other proc
+	 * exits holding the display lock, this atexit call never finishes.
 	 *
 	 * atexit(drawshutdown);
 	 */
 	return 1;
+
+Error:
+	closedisplay(display);
+	display = nil;
+	return -1;
 }
 
 int
@@ -234,66 +237,50 @@ getwindow(Display *d, int ref)
 Display*
 _initdisplay(void (*error)(Display*, char*), char *label)
 {
-	Display *disp;
-	Image *image;
+	Display *d;
 
 	fmtinstall('P', Pfmt);
 	fmtinstall('R', Rfmt);
 
-	disp = mallocz(sizeof(Display), 1);
-	if(disp == nil){
-    Error1:
+	d = mallocz(sizeof(Display), 1);
+	if(d == nil)
 		return nil;
-	}
-	disp->srvfd = -1;
-	image = nil;
-	if(0){
-    Error2:
-		free(image);
-		free(disp);
-		goto Error1;
-	}
-	disp->bufsize = 65500;
-	disp->buf = malloc(disp->bufsize+5);	/* +5 for flush message */
-	disp->bufp = disp->buf;
-	disp->error = error;
-	qlock(&disp->qlock);
+	d->srvfd = -1;
+	d->bufsize = 65500;
+	d->buf = malloc(d->bufsize+5);	/* +5 for flush message */
+	if(d->buf == nil)
+		goto Error;
+	d->bufp = d->buf;
+	d->error = error;
 
-	if(disp->buf == nil)
-		goto Error2;
-	if(0){
-    Error3:
-		free(disp->buf);
-		goto Error2;
-	}
+	qlock(&d->qlock);
+	if(_displaymux(d)<0
+	|| _displayconnect(d)<0
+	|| _displayinit(d, label, winsize)<0)
+		goto Error;
 
-	if(_displaymux(disp) < 0
-	|| _displayconnect(disp) < 0
-	|| _displayinit(disp, label, winsize) < 0)
-		goto Error3;
-	if(0){
-    Error4:
-		close(disp->srvfd);
-		goto Error3;
-	}
+	d->image = getimage0(d, nil);
+	if(d->image == nil)
+		goto Error;
 
-	image = getimage0(disp, nil);
-	if(image == nil)
-		goto Error4;
+	d->white = allocimage(d, Rect(0, 0, 1, 1), GREY8, 1, DWhite);
+	d->black = allocimage(d, Rect(0, 0, 1, 1), GREY8, 1, DBlack);
+	if(d->white==nil || d->black==nil)
+		goto Error;
+	d->opaque = d->white;
+	d->transparent = d->black;
 
-	disp->image = image;
-	disp->white = allocimage(disp, Rect(0, 0, 1, 1), GREY1, 1, DWhite);
-	disp->black = allocimage(disp, Rect(0, 0, 1, 1), GREY1, 1, DBlack);
-	if(disp->white == nil || disp->black == nil){
-		free(disp->white);
-		free(disp->black);
-		goto Error4;
-	}
+	return d;
 
-	disp->opaque = disp->white;
-	disp->transparent = disp->black;
-
-	return disp;
+Error:
+	free(d->white);
+	free(d->black);
+	free(d->image);
+	if(d->srvfd >= 0)
+		close(d->srvfd);
+	free(d->buf);
+	free(d);
+	return nil;
 }
 
 /*
@@ -310,7 +297,7 @@ closedisplay(Display *disp)
 		return;
 	if(disp == display)
 		display = nil;
-	if(disp->oldlabel[0]){
+	if(disp->oldlabel[0] != '\0'){
 		snprint(buf, sizeof buf, "%s/label", disp->windir);
 		fd = open(buf, OWRITE);
 		if(fd >= 0){
@@ -321,9 +308,9 @@ closedisplay(Display *disp)
 
 	free(disp->devdir);
 	free(disp->windir);
-	if(disp->white)
+	if(disp->white != nil)
 		freeimage(disp->white);
-	if(disp->black)
+	if(disp->black != nil)
 		freeimage(disp->black);
 	if(disp->srvfd >= 0)
 		close(disp->srvfd);
@@ -354,8 +341,8 @@ drawerror(Display *d, char *s)
 {
 	char err[ERRMAX];
 
-	if(d->error)
-		d->error(d, s);
+	if(d->error != nil)
+		(*d->error)(d, s);
 	else{
 		errstr(err, sizeof err);
 		fprint(2, "draw: %s: %s\n", s, err);
