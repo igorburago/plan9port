@@ -951,7 +951,7 @@ textframescroll(Text *t, int dl)
 	uint dragq;
 
 	if(dl == 0){
-		scrsleep(100);
+		waitformouse(mousectl, 100);
 		return;
 	}
 	if(dl>0 && t->what==Tag && !t->w->tagexpand){
