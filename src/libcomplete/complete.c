@@ -58,7 +58,7 @@ complete(char *dir, char *s)
 		return nil;
 
 	n = dirreadall(fd, &dirp);
-	if(n <= 0){
+	if(n < 0){
 		close(fd);
 		return nil;
 	}
