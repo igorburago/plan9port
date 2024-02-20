@@ -644,7 +644,7 @@ textcompletepath(Text *t)
 			warning(nil, " %s\n", c->filename[i]);
 	}
 
-	freecompletion(c);
+	free(c);
 	free(base);
 	if(dir != Dot)
 		free(dir);

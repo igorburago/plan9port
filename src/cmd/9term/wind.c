@@ -572,7 +572,7 @@ wcompletepath(Window *w, uint *ninsp)
 			wshowpathcompl(w, c);
 	}
 
-	freecompletion(c);
+	free(c);
 	free(base);
 	if(dir != Dot)
 		free(dir);

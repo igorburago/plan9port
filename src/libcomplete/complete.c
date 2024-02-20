@@ -2,30 +2,16 @@
 #include <libc.h>
 #include "complete.h"
 
-static int
-longestprefixlength(char *a, char *b, int n)
+/* Byte length of the longest common prefix of two strings. */
+static ulong
+lcprefixlen(char *a, char *b, ulong maxlen)
 {
-	int i, w;
-	Rune ra, rb;
+	ulong i;
 
-	for(i=0; i<n; i+=w){
-		w = chartorune(&ra, a);
-		chartorune(&rb, b);
-		if(ra != rb)
+	for(i=0; i<maxlen; i++)
+		if(a[i]=='\0' || b[i]=='\0' || a[i]!=b[i])
 			break;
-		a += w;
-		b += w;
-	}
 	return i;
-}
-
-void
-freecompletion(Completion *c)
-{
-	if(c){
-		free(c->filename);
-		free(c);
-	}
 }
 
 static int
@@ -39,106 +25,90 @@ strpcmp(const void *va, const void *vb)
 }
 
 Completion*
-complete(char *dir, char *s)
+complete(char *dirpath, char *base)
 {
-	long i, l, n, nfile, len, nbytes;
-	int fd, minlen;
-	Dir *dirp;
-	char **name, *p;
-	ulong* mode;
-	Completion *c;
+	int fd;
+	Dir *dir;
+	long nfile, nmatch, i;
+	ulong baselen, advance;
+	ulong strsize, farrsize, fdatasize, size;
+	char *pc, *pp, *p;
+	Completion c;
 
-	if(strchr(s, '/') != nil){
-		werrstr("slash character in name argument to complete()");
-		return nil;
-	}
+	for(baselen=0; base[baselen]!='\0'; baselen++)
+		if(base[baselen] == '/'){
+			werrstr("the prefix to complete contains a slash character");
+			return nil;
+		}
 
-	fd = open(dir, OREAD);
+	fd = open(dirpath, OREAD);
 	if(fd < 0)
 		return nil;
+	nfile = dirreadall(fd, &dir);
+	close(fd);
+	if(nfile < 0)
+		return nil;
 
-	n = dirreadall(fd, &dirp);
-	if(n < 0){
-		close(fd);
+	nmatch = 0;
+	advance = -1;
+	for(i=0; i<nfile; i++)
+		if(strncmp(dir[i].name, base, baselen) == 0){
+			dir[nmatch++] = dir[i];
+			advance = lcprefixlen(dir[0].name+baselen, dir[i].name+baselen, advance);
+		}
+	if(nmatch > 0)
+		nfile = nmatch;
+	else
+		advance = 0;
+
+	strsize = advance + (nmatch==1) + 1;	/* plus '/' or ' ', plus '\0' */
+	/* Round up to the pointer size to align the following filename array. */
+	strsize += -strsize & (sizeof(char*)-1);
+	farrsize = nfile * sizeof(char*);
+	fdatasize = 0;
+	for(i=0; i<nfile; i++)
+		fdatasize += strlen(dir[i].name) + !!(dir[i].mode&DMDIR) + 1;	/* plus '/', plus '\0' */
+
+	size = sizeof(Completion) + strsize + farrsize + fdatasize;
+	pc = malloc(size);
+	if(pc == nil){
+		werrstr("cannot allocate a completion result of %uld bytes", size);
+		free(dir);
 		return nil;
 	}
+	c.advance = (nmatch==1 || advance>0);
+	c.complete = (nmatch == 1);
+	c.nmatch = nmatch;
+	c.nfile = nfile;
 
-	/* find longest string, for allocation */
-	len = 0;
-	for(i=0; i<n; i++){
-		l = strlen(dirp[i].name) + 1 + 1; /* +1 for /   +1 for \0 */
-		if(l > len)
-			len = l;
+	p = pc + sizeof(Completion);
+	c.string = p;
+	if(nmatch > 0){
+		memmove(p, dir[0].name+baselen, advance);
+		p += advance;
+		if(nmatch == 1)
+			*p++ = (dir[0].mode&DMDIR) ? '/' : ' ';
 	}
+	*p = '\0';
 
-	name = malloc(n*sizeof(char*));
-	mode = malloc(n*sizeof(ulong));
-	c = malloc(sizeof(Completion) + len);
-	if(name == nil || mode == nil || c == nil)
-		goto Return;
-	memset(c, 0, sizeof(Completion));
-
-	/* find the matches */
-	len = strlen(s);
-	nfile = 0;
-	minlen = 1000000;
-	for(i=0; i<n; i++)
-		if(strncmp(s, dirp[i].name, len) == 0){
-			name[nfile] = dirp[i].name;
-			mode[nfile] = dirp[i].mode;
-			if(minlen > strlen(dirp[i].name))
-				minlen = strlen(dirp[i].name);
-			nfile++;
-		}
-
-	if(nfile > 0) {
-		/* report interesting results */
-		/* trim length back to longest common initial string */
-		for(i=1; i<nfile; i++)
-			minlen = longestprefixlength(name[0], name[i], minlen);
-
-		/* build the answer */
-		c->complete = (nfile == 1);
-		c->advance = c->complete || (minlen > len);
-		c->string = (char*)(c+1);
-		memmove(c->string, name[0]+len, minlen-len);
-		if(c->complete)
-			c->string[minlen++ - len] = (mode[0]&DMDIR)? '/' : ' ';
-		c->string[minlen - len] = '\0';
-		c->nmatch = nfile;
-	} else {
-		/* no match, so return all possible strings */
-		for(i=0; i<n; i++){
-			name[i] = dirp[i].name;
-			mode[i] = dirp[i].mode;
-		}
-		nfile = n;
-		c->nmatch = 0;
-	}
-
-	/* attach list of names */
-	nbytes = nfile * sizeof(char*);
-	for(i=0; i<nfile; i++)
-		nbytes += strlen(name[i]) + 1 + 1;
-	c->filename = malloc(nbytes);
-	if(c->filename == nil)
-		goto Return;
-	p = (char*)(c->filename + nfile);
+	/*
+	 * The memcpy() shenanigans below are what modern C compilers require to
+	 * guarantee that they will not abuse their standard-conferred freedom to
+	 * take advantage of strict aliasing. Access via c.filename[i] pointers
+	 * in qsort() here — as well as in the caller code — is not problematic,
+	 * since aliasing inference does not cross translation unit boundaries.
+	 */
+	pp = pc + sizeof(Completion) + strsize;
+	c.filename = (char**)pp;
+	p = pp + farrsize;
 	for(i=0; i<nfile; i++){
-		c->filename[i] = p;
-		strcpy(p, name[i]);
-		p += strlen(p);
-		if(mode[i] & DMDIR)
-			*p++ = '/';
-		*p++ = '\0';
+		memcpy(pp, &p, sizeof(p));
+		pp += sizeof(p);
+		p += sprint(p, "%s%s", dir[i].name, (dir[i].mode&DMDIR) ? "/" : "") + 1;
 	}
-	c->nfile = nfile;
-	qsort(c->filename, c->nfile, sizeof(c->filename[0]), strpcmp);
+	qsort(c.filename, nfile, sizeof(c.filename[0]), strpcmp);
 
-  Return:
-	free(name);
-	free(mode);
-	free(dirp);
-	close(fd);
-	return c;
+	free(dir);
+	memcpy(pc, &c, sizeof(c));
+	return (Completion*)pc;
 }
