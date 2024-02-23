@@ -72,8 +72,21 @@ static AppDelegate *myApp;
 void
 gfx_main(void)
 {
-	if(client0 != nil)
-		setprocname(argv0);
+	char *name;
+
+	/*
+	 * Set the process name, which is displayed in the application menu amongst
+	 * other things, to the capitalized basename of the executable's filepath.
+	 */
+	if(client0!=nil && argv0!=nil){
+		name = strrchr(argv0, '/');
+		name = strdup(name!=nil ? name+1 : argv0);
+		if(name != nil){
+			name[0] = toupper((uchar)name[0]);
+			setprocname(name);
+			free(name);
+		}
+	}
 
 	@autoreleasepool{
 		[NSApplication sharedApplication];
