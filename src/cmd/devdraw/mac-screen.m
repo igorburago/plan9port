@@ -29,7 +29,7 @@ AUTOFRAMEWORK(Metal)
 AUTOFRAMEWORK(QuartzCore)
 AUTOFRAMEWORK(CoreFoundation)
 
-#define LOG	if(0)NSLog
+#define LOG	if(!0);else NSLog
 
 /*
  * TODO: Maintain a list of views for the dock menu.
