@@ -645,6 +645,9 @@ mousethread(void *v)
 					winunlock(w);
 					break;
 				case Tag:
+					/* When outside of the layout box, just interact with text. */
+					if(m.xy.y >= t->scrollr.min.y+t->fr.font->height)
+						goto Textclicks;
 					coldragwin(t->col, t->w, but);
 					if(t->w)
 						barttext = &t->w->body;
@@ -660,6 +663,7 @@ mousethread(void *v)
 				goto Continue;
 			}
 
+		Textclicks:
 			/* All other clicks, chords, and drags. */
 			if(m.buttons){
 				if(w)
