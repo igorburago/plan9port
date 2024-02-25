@@ -57,23 +57,35 @@ derror(Display *d, char *errorstr)
 }
 
 void
+usage(void)
+{
+	fprint(2, "usage: acme -a -c ncol -f mainfontname -F altfontname -l loadfile -W winsize\n");
+	threadexitsall("usage");
+}
+
+void
 threadmain(int argc, char *argv[])
 {
-	int i;
-	char *p, *loadfile;
-	Column *c;
-	int ncol;
+	enum{
+		Maxncol		= 256,
+		Maxtabstop	= 4096
+	};
+	int ncol, i;
+	char *loadfile, *p;
+	ulong ul;
 	Display *d;
+	Column *c;
 
 	rfork(RFENVG|RFNAMEG);
 
 	ncol = -1;
-
 	loadfile = nil;
+
 	ARGBEGIN{
 	case 'D':
-		{extern int _threaddebuglevel;
-		_threaddebuglevel = ~0;
+		{
+			extern int _threaddebuglevel;
+			_threaddebuglevel = ~0;
 		}
 		break;
 	case 'a':
@@ -83,45 +95,35 @@ threadmain(int argc, char *argv[])
 		bartflag = TRUE;
 		break;
 	case 'c':
-		p = ARGF();
-		if(p == nil)
-			goto Usage;
-		ncol = atoi(p);
-		if(ncol <= 0)
-			goto Usage;
+		p = EARGF(usage());
+		ul = strtoul(p, nil, 10);
+		if(ul==0 || ul==-1)
+			usage();
+		if(ul <= Maxncol)
+			ncol = ul;
+		else
+			ncol = Maxncol;
 		break;
 	case 'f':
-		fontnames[0] = ARGF();
-		if(fontnames[0] == nil)
-			goto Usage;
+		fontnames[0] = EARGF(usage());
 		break;
 	case 'F':
-		fontnames[1] = ARGF();
-		if(fontnames[1] == nil)
-			goto Usage;
+		fontnames[1] = EARGF(usage());
 		break;
 	case 'l':
-		loadfile = ARGF();
-		if(loadfile == nil)
-			goto Usage;
+		loadfile = EARGF(usage());
 		break;
 	case 'm':
-		mtpt = ARGF();
-		if(mtpt == nil)
-			goto Usage;
+		mtpt = EARGF(usage());
 		break;
 	case 'r':
 		swapscrollbuttons = TRUE;
 		break;
 	case 'W':
-		winsize = ARGF();
-		if(winsize == nil)
-			goto Usage;
+		winsize = EARGF(usage());
 		break;
 	default:
-	Usage:
-		fprint(2, "usage: acme -a -c ncol -f fontname -F fixedwidthfontname -l loadfile -W winsize\n");
-		threadexitsall("usage");
+		usage();
 	}ARGEND
 
 	fontnames[0] = estrdup(fontnames[0]);
@@ -134,42 +136,48 @@ threadmain(int argc, char *argv[])
 	objtype = getenv("objtype");
 	home = getenv("HOME");
 	acmeshell = getenv("acmeshell");
-	if(acmeshell && *acmeshell == '\0')
+	if(acmeshell!=nil && *acmeshell=='\0'){
+		free(acmeshell);
 		acmeshell = nil;
+	}
+
 	p = getenv("tabstop");
 	if(p != nil){
-		maxtab = strtoul(p, nil, 0);
+		ul = strtoul(p, nil, 10);
+		if(ul!=0 && ul!=-1){
+			if(ul <= Maxtabstop)
+				maxtab = ul;
+			else
+				maxtab = Maxtabstop;
+		}
 		free(p);
 	}
 	if(maxtab == 0)
 		maxtab = 4;
-	if(loadfile)
+
+	if(loadfile != nil)
 		rowloadfonts(loadfile);
-	putenv("font", fontnames[0]);
-	snarffd = open("/dev/snarf", OREAD|OCEXEC);
-/*
-	if(cputype){
-		sprint(buf, "/acme/bin/%s", cputype);
-		bind(buf, "/bin", MBEFORE);
-	}
-	bind("/acme/bin", "/bin", MBEFORE);
-*/
+	if(*fontnames[0] != '\0')
+		putenv("font", fontnames[0]);
+
+	//snarffd = open("/dev/snarf", OREAD|OCEXEC);
+
+	//if(cputype){
+	//	sprint(buf, "/acme/bin/%s", cputype);
+	//	bind(buf, "/bin", MBEFORE);
+	//}
+	//bind("/acme/bin", "/bin", MBEFORE);
+
+	mainpid = getpid();
 	getwd(wdir, sizeof wdir);
 
-/*
-	if(geninitdraw(nil, derror, fontnames[0], "acme", nil, Refnone) < 0){
-		fprint(2, "acme: can't open display: %r\n");
-		threadexitsall("geninitdraw");
-	}
-*/
-	if(initdraw(derror, fontnames[0], "acme") < 0){
-		fprint(2, "acme: can't open display: %r\n");
-		threadexitsall("initdraw");
-	}
+	//if(geninitdraw(nil, derror, fontnames[0], "acme", nil, Refnone) < 0)
+	//	error("can't open display");
+	if(initdraw(derror, fontnames[0], "acme") < 0)
+		error("can't open display");
 
 	d = display;
 	font = d->defaultfont;
-/*assert(font); */
 
 	reffont.f = font;
 	reffonts[0] = &reffont;
@@ -193,10 +201,10 @@ threadmain(int argc, char *argv[])
 	cedit = chancreate(sizeof(int), 0);
 	cexit = chancreate(sizeof(int), 0);
 	cwarn = chancreate(sizeof(void*), 1);
-	if(cwait==nil || ccommand==nil || ckill==nil || cxfidalloc==nil || cxfidfree==nil || cerr==nil || cexit==nil || cwarn==nil){
-		fprint(2, "acme: can't create initial channels: %r\n");
-		threadexitsall("channels");
-	}
+	if(cwait==nil || ccommand==nil || ckill==nil
+	|| cxfidalloc==nil || cxfidfree==nil || cnewwindow==nil
+	|| cerr==nil || cedit==nil || cexit==nil || cwarn==nil)
+		error("can't create initial channels");
 	chansetname(ccommand, "ccommand");
 	chansetname(ckill, "ckill");
 	chansetname(cxfidalloc, "cxfidalloc");
@@ -208,34 +216,28 @@ threadmain(int argc, char *argv[])
 	chansetname(cwarn, "cwarn");
 
 	mousectl = initmouse(nil, screen);
-	if(mousectl == nil){
-		fprint(2, "acme: can't initialize mouse: %r\n");
-		threadexitsall("mouse");
-	}
+	if(mousectl == nil)
+		error("can't initialize mouse");
 	mouse = &mousectl->m;
 	keyboardctl = initkeyboard(nil);
-	if(keyboardctl == nil){
-		fprint(2, "acme: can't initialize keyboard: %r\n");
-		threadexitsall("keyboard");
-	}
-	mainpid = getpid();
+	if(keyboardctl == nil)
+		error("can't initialize keyboard");
 	startplumbing();
-/*
-	plumbeditfd = plumbopen("edit", OREAD|OCEXEC);
-	if(plumbeditfd < 0)
-		fprint(2, "acme: can't initialize plumber: %r\n");
-	else{
-		cplumb = chancreate(sizeof(Plumbmsg*), 0);
-		threadcreate(plumbproc, nil, STACK);
-	}
-	plumbsendfd = plumbopen("send", OWRITE|OCEXEC);
-*/
+
+	//plumbeditfd = plumbopen("edit", OREAD|OCEXEC);
+	//if(plumbeditfd < 0)
+	//	fprint(2, "acme: can't initialize plumber: %r\n");
+	//else{
+	//	cplumb = chancreate(sizeof(Plumbmsg*), 0);
+	//	threadcreate(plumbproc, nil, STACK);
+	//}
+	//plumbsendfd = plumbopen("send", OWRITE|OCEXEC);
 
 	fsysinit();
 
-	#define	WPERCOL	8
+	#define WPERCOL 8
 	disk = diskinit();
-	if(!loadfile || !rowload(&row, loadfile, TRUE)){
+	if(loadfile==nil || !rowload(&row, loadfile, TRUE)){
 		rowinit(&row, screen->clipr);
 		if(ncol < 0){
 			if(argc == 0)
@@ -273,8 +275,9 @@ threadmain(int argc, char *argv[])
 	threadcreate(waitthread, nil, STACK);
 	threadcreate(xfidallocthread, nil, STACK);
 	threadcreate(newwindowthread, nil, STACK);
-/*	threadcreate(shutdownthread, nil, STACK); */
+	//threadcreate(shutdownthread, nil, STACK);
 	threadnotify(shutdown, 1);
+
 	recvul(cexit);
 	killprocs();
 	threadexitsall(nil);
@@ -371,10 +374,10 @@ killprocs(void)
 	Command *c;
 
 	fsysclose();
-/*	if(display) */
-/*		flushimage(display, 1); */
+	//if(display != nil)
+	//	flushimage(display, 1);
 
-	for(c=command; c; c=c->next)
+	for(c=command; c!=nil; c=c->next)
 		postnote(PNGROUP, c->pid, "hangup");
 }
 

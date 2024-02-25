@@ -72,7 +72,7 @@ void
 error(char *s)
 {
 	fprint(2, "acme: %s: %r\n", s);
-	threadexitsall(nil);
+	threadexitsall("error");
 }
 
 Window*
