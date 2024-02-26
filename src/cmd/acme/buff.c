@@ -191,7 +191,7 @@ bufinsert(Buffer *b, uint q0, Rune *s, uint n)
 		sizecache(b, b->cnc+m);
 		runemove(b->c+b->cnc, s, m);
 		b->cnc += m;
-  Tail:
+	Tail:
 		b->nc += m;
 		q0 += m;
 		s += m;

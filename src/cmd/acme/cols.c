@@ -170,7 +170,7 @@ colclose(Column *c, Window *w, int dofree)
 		if(c->w[i] == w)
 			goto Found;
 	error("can't find window");
-  Found:
+Found:
 	r = w->r;
 	w->tag.col = nil;
 	w->body.col = nil;
@@ -406,7 +406,7 @@ Found:
 			dnl -= l;
 		}
 	}
-    Pack:
+Pack:
 	/* pack everyone above */
 	y1 = cr.min.y;
 	for(j=0; j<i; j++){
@@ -502,7 +502,7 @@ coldragwin(Column *c, Window *w, int but)
 			goto Found;
 	error("can't find window");
 
-  Found:
+Found:
 	if(w->tagexpand)	/* force recomputation of window tag size */
 		w->taglines = 1;
 	p = mouse->xy;

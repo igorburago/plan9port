@@ -60,7 +60,7 @@ filedeltext(File *f, Text *t)
 			goto Found;
 	error("can't find text in filedeltext");
 
-    Found:
+Found:
 	f->ntext--;
 	if(f->ntext == 0){
 		fileclose(f);
@@ -274,7 +274,7 @@ fileundo(File *f, int isundo, uint *q0p, uint *q1p)
 	}
 	if(isundo)
 		f->seq = 0;
-    Return:
+Return:
 	fbuffree(buf);
 }
 

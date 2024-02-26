@@ -828,7 +828,7 @@ waitthread(void *arg)
 			}
 			qunlock(&row.lk);
 			free(w);
-    Freecmd:
+		Freecmd:
 			if(c){
 				if(c->iseditcmd)
 					sendul(cedit, 0);
@@ -957,7 +957,7 @@ rfget(int fix, int save, int setfont, char *name)
 		fontcache = erealloc(fontcache, (nfontcache+1)*sizeof(Reffont*));
 		fontcache[nfontcache++] = r;
 	}
-    Found:
+Found:
 	if(save){
 		incref(&r->ref);
 		if(reffonts[fix])

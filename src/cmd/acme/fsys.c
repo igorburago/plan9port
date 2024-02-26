@@ -431,7 +431,7 @@ fsyswalk(Xfid *x, Fid *f)
 					winclose(w);
 					w = nil;
 				}
-    Accept:
+			Accept:
 				if(i == MAXWELEM){
 					err = "name too long";
 					break;
@@ -464,7 +464,7 @@ fsyswalk(Xfid *x, Fid *f)
 			dir = dirtabw;
 			goto Accept;
 
-    Regular:
+		Regular:
 			if(strcmp(x->fcall.wname[i], "new") == 0){
 				if(w)
 					error("w set in walk to new");
@@ -550,7 +550,7 @@ fsysopen(Xfid *x, Fid *f)
 	sendp(x->c, (void*)xfidopen);
 	return nil;
 
-    Deny:
+Deny:
 	return respond(x, &t, Eperm);
 }
 

@@ -1385,7 +1385,7 @@ cmdname(File *f, String *str, int set)
 	if(f->nname == 0)
 		set = TRUE;
 
-    Return:
+Return:
 	if(set && !runeeq(r, n, f->name, f->nname)){
 		filemark(f);
 		f->mod = TRUE;

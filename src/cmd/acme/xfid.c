@@ -340,7 +340,7 @@ xfidread(Xfid *x)
 
 	Readbuf:
 		b = buf;
-	Readb:
+Readb:
 		n = strlen(b);
 		if(off > n)
 			off = n;
@@ -911,7 +911,7 @@ xfideventwrite(Xfid *x, Window *w)
 
 	}
 
-    Out:
+Out:
 	if(isfbuf)
 		fbuffree(r);
 	else
@@ -922,7 +922,7 @@ xfideventwrite(Xfid *x, Window *w)
 	respond(x, &fc, err);
 	return;
 
-    Rescue:
+Rescue:
 	err = Ebadevent;
 	goto Out;
 }

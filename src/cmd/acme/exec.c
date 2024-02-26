@@ -805,7 +805,7 @@ putfile(File *f, int q0, int q1, Rune *namer, int nname)
 	winsettag(w);
 	return;
 
-    Rescue2:
+Rescue2:
 	if(b != nil) {
 		Bterm(b);
 		free(b);
@@ -815,8 +815,7 @@ putfile(File *f, int q0, int q1, Rune *namer, int nname)
 	fbuffree(s);
 	fbuffree(r);
 	/* fall through */
-
-    Rescue1:
+Rescue1:
 	free(d);
 	free(namer);
 	free(name);
@@ -1727,7 +1726,7 @@ Hard:
 	}
 	warning(nil, "exec %s: %r\n", shell);
 
-   Fail:
+Fail:
 	/* threadexec hasn't happened, so send a zero */
 	close(sfd[0]);
 	close(sfd[1]);

@@ -454,7 +454,7 @@ includename(Text *t, Rune *r, int n)
 		goto Rescue;
 	return file;
 
-    Rescue:
+Rescue:
 	return runestr(r, n);
 }
 
@@ -626,7 +626,7 @@ expandfile(Text *t, uint q0, uint q1, Expand *e)
 		goto Isntfile;
 	}
 
-  Isfile:
+Isfile:
 	e->name = r;
 	e->nname = nname;
 	e->u.at = t;
@@ -635,7 +635,7 @@ expandfile(Text *t, uint q0, uint q1, Expand *e)
 	address(TRUE, nil, range(-1,-1), range(0,0), t, e->a0, amax, tgetc, &eval, (uint*)&e->a1);
 	return TRUE;
 
-   Isntfile:
+Isntfile:
 	free(r);
 	return FALSE;
 }

@@ -312,7 +312,7 @@ textload(Text *t, uint q0, char *file, int setqid)
 	free(d);
 	return q1-q0;
 
-    Rescue:
+Rescue:
 	close(fd);
 	return -1;
 }

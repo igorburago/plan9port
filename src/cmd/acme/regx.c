@@ -482,7 +482,7 @@ bldcclass(void)
 		negateclass = FALSE;
 	while((c1 = nextrec()) != ']'){
 		if(c1 == '-'){
-    Error:
+		Error:
 			free(classp);
 			regerror("malformed `[]'");
 		}
@@ -620,7 +620,7 @@ rxexecute(Text *t, Rune *r, uint startp, uint eof, Rangeset *rp)
 			sempty.r[0].q0 = p;
 			if(addinst(tl, startinst, &sempty))
 			if(++ntl >= NLIST){
-	Overflow:
+			Overflow:
 				warning(nil, "regexp list overflow\n");
 				sel.r[0].q0 = -1;
 				goto Return;
@@ -628,11 +628,11 @@ rxexecute(Text *t, Rune *r, uint startp, uint eof, Rangeset *rp)
 		}
 		/* Execute machine until this list is empty */
 		for(tlp = tl; inst = tlp->inst; tlp++){	/* assignment = */
-	Switchstmt:
+		Switchstmt:
 			switch(inst->type){
 			default:	/* regular character */
 				if(inst->type==c){
-	Addinst:
+				Addinst:
 					if(addinst(nl, inst->u1.next, &tlp->se))
 					if(++nnl >= NLIST)
 						goto Overflow;
@@ -654,7 +654,7 @@ rxexecute(Text *t, Rune *r, uint startp, uint eof, Rangeset *rp)
 				break;
 			case BOL:
 				if(p==0 || (t!=nil && textreadc(t, p-1)=='\n') || (r!=nil && r[p-1]=='\n')){
-	Step:
+				Step:
 					inst = inst->u1.next;
 					goto Switchstmt;
 				}
@@ -686,7 +686,7 @@ rxexecute(Text *t, Rune *r, uint startp, uint eof, Rangeset *rp)
 			}
 		}
 	}
-    Return:
+Return:
 	*rp = sel;
 	return sel.r[0].q0 >= 0;
 }
@@ -758,7 +758,7 @@ rxbexecute(Text *t, uint startp, Rangeset *rp)
 			sempty.r[0].q0 = -p;
 			if(addinst(tl, bstartinst, &sempty))
 			if(++ntl >= NLIST){
-	Overflow:
+			Overflow:
 				warning(nil, "regexp list overflow\n");
 				sel.r[0].q0 = -1;
 				goto Return;
@@ -766,11 +766,11 @@ rxbexecute(Text *t, uint startp, Rangeset *rp)
 		}
 		/* Execute machine until this list is empty */
 		for(tlp = tl; inst = tlp->inst; tlp++){	/* assignment = */
-	Switchstmt:
+		Switchstmt:
 			switch(inst->type){
 			default:	/* regular character */
 				if(inst->type == c){
-	Addinst:
+				Addinst:
 					if(addinst(nl, inst->u1.next, &tlp->se))
 					if(++nnl >= NLIST)
 						goto Overflow;
@@ -792,7 +792,7 @@ rxbexecute(Text *t, uint startp, Rangeset *rp)
 				break;
 			case BOL:
 				if(c=='\n' || p==0){
-	Step:
+				Step:
 					inst = inst->u1.next;
 					goto Switchstmt;
 				}
@@ -825,7 +825,7 @@ rxbexecute(Text *t, uint startp, Rangeset *rp)
 			}
 		}
 	}
-    Return:
+Return:
 	*rp = sel;
 	return sel.r[0].q0 >= 0;
 }

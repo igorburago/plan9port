@@ -452,7 +452,7 @@ collecttext(void)
 			getch();
 		atnl();
 	}
-    Return:
+Return:
 	return s;
 }
 
@@ -556,7 +556,7 @@ parsecmd(int nest)
 		default:
 			editerror("unknown command %c", cmd.cmdc);
 		}
-    Return:
+Return:
 	cp = newcmd();
 	*cp = cmd;
 	return cp;
