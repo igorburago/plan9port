@@ -78,15 +78,14 @@ startplumbing(void)
 	threadcreate(plumbthread, nil, STACK);
 }
 
-
 void
 look3(Text *t, uint q0, uint q1, int external)
 {
-	int n, c, f, expanded;
 	Text *ct;
 	Expand e;
-	Rune *r;
-	uint p;
+	Rune *r, c;
+	uint xq0, nr, f;
+	int ec, expanded;
 	Plumbmsg *m;
 	Runestr dir;
 	char buf[32];
@@ -97,48 +96,48 @@ look3(Text *t, uint q0, uint q1, int external)
 	expanded = expand(t, q0, q1, &e);
 	if(!external && t->w!=nil && t->w->nopen[QWevent]>0){
 		/* send alphanumeric expansion to external client */
-		if(expanded == FALSE)
+		if(!expanded)
 			return;
 		f = 0;
 		if((e.u.at!=nil && t->w!=nil) || (e.nname>0 && lookfile(e.name, e.nname)!=nil))
-			f = 1;		/* acme can do it without loading a file */
+			f = 1;	/* acme can do it without loading a file */
 		if(q0!=e.q0 || q1!=e.q1)
 			f |= 2;	/* second (post-expand) message follows */
-		if(e.nname)
+		if(e.nname > 0)
 			f |= 4;	/* it's a file name */
-		c = 'l';
+		ec = 'l';
 		if(t->what == Body)
-			c = 'L';
-		n = q1-q0;
-		if(n <= EVENTSIZE){
-			r = runemalloc(n);
-			bufread(&t->file->b, q0, r, n);
-			winevent(t->w, "%c%d %d %d %d %.*S\n", c, q0, q1, f, n, n, r);
+			ec = 'L';
+		nr = q1-q0;
+		if(nr <= EVENTSIZE){
+			r = runemalloc(nr);
+			bufread(&t->file->b, q0, r, nr);
+			winevent(t->w, "%c%ud %ud %ud %ud %.*S\n", ec, q0, q1, f, nr, (int)nr, r);
 			free(r);
 		}else
-			winevent(t->w, "%c%d %d %d 0 \n", c, q0, q1, f, n);
+			winevent(t->w, "%c%ud %ud %ud 0 \n", ec, q0, q1, f);
 		if(q0==e.q0 && q1==e.q1)
 			return;
-		if(e.nname){
-			n = e.nname;
+		if(e.nname > 0){
+			nr = e.nname;
 			if(e.a1 > e.a0)
-				n += 1+(e.a1-e.a0);
-			r = runemalloc(n);
+				nr += 1+(e.a1-e.a0);
+			r = runemalloc(nr);
 			runemove(r, e.name, e.nname);
 			if(e.a1 > e.a0){
 				r[e.nname] = ':';
 				bufread(&e.u.at->file->b, e.a0, r+e.nname+1, e.a1-e.a0);
 			}
 		}else{
-			n = e.q1 - e.q0;
-			r = runemalloc(n);
-			bufread(&t->file->b, e.q0, r, n);
+			nr = e.q1-e.q0;
+			r = runemalloc(nr);
+			bufread(&t->file->b, e.q0, r, nr);
 		}
-		f &= ~2;
-		if(n <= EVENTSIZE)
-			winevent(t->w, "%c%d %d %d %d %.*S\n", c, e.q0, e.q1, f, n, n, r);
+		f &= ~2u;
+		if(nr <= EVENTSIZE)
+			winevent(t->w, "%c%ud %ud %ud %ud %.*S\n", ec, e.q0, e.q1, f, nr, (int)nr, r);
 		else
-			winevent(t->w, "%c%d %d %d 0 \n", c, e.q0, e.q1, f, n);
+			winevent(t->w, "%c%ud %ud %ud 0 \n", ec, e.q0, e.q1, f);
 		free(r);
 		goto Return;
 	}
@@ -166,25 +165,26 @@ look3(Text *t, uint q0, uint q1, int external)
 				q0 = t->q0;
 				q1 = t->q1;
 			}else{
-				p = q0;
-				while(q0>0 && (c=tgetc(t, q0-1))!=' ' && c!='\t' && c!='\n')
+				xq0 = q0;
+				while(q0>0 && (c=textreadc(t, q0-1), c!=' ' && c!='\t' && c!='\n'))
 					q0--;
-				while(q1<t->file->b.nc && (c=tgetc(t, q1))!=' ' && c!='\t' && c!='\n')
+				while(q1<t->file->b.nc && (c=textreadc(t, q1), c!=' ' && c!='\t' && c!='\n'))
 					q1++;
 				if(q1 == q0){
 					plumbfree(m);
 					goto Return;
 				}
-				sprint(buf, "click=%d", p-q0);
+				sprint(buf, "click=%d", xq0-q0);
 				m->attr = plumbunpackattr(buf);
 			}
 		}
-		r = runemalloc(q1-q0);
-		bufread(&t->file->b, q0, r, q1-q0);
-		m->data = runetobyte(r, q1-q0);
+		nr = q1-q0;
+		r = runemalloc(nr);
+		bufread(&t->file->b, q0, r, nr);
+		m->data = runetobyte(r, nr);
 		m->ndata = strlen(m->data);
 		free(r);
-		if(m->ndata<messagesize-1024 && plumbsendtofid(plumbsendfid, m) >= 0){
+		if(m->ndata<messagesize-1024 && plumbsendtofid(plumbsendfid, m)>=0){
 			plumbfree(m);
 			goto Return;
 		}
@@ -193,9 +193,9 @@ look3(Text *t, uint q0, uint q1, int external)
 	}
 
 	/* interpret alphanumeric string ourselves */
-	if(expanded == FALSE)
+	if(!expanded)
 		return;
-	if(e.name || e.u.at)
+	if(e.name!=nil || e.u.at!=nil)
 		openfile(t, &e);
 	else{
 		if(t->w == nil)
@@ -205,17 +205,17 @@ look3(Text *t, uint q0, uint q1, int external)
 			winlock(ct->w, 'M');
 		if(t == ct)
 			textsetselect(ct, e.q1, e.q1);
-		n = e.q1 - e.q0;
-		r = runemalloc(n);
-		bufread(&t->file->b, e.q0, r, n);
-		if(search(ct, r, n) && e.jump)
+		nr = e.q1-e.q0;
+		r = runemalloc(nr);
+		bufread(&t->file->b, e.q0, r, nr);
+		if(search(ct, r, nr) && e.jump)
 			moveto(mousectl, addpt(frptofchar(&ct->fr, ct->fr.p0), Pt(4, ct->fr.font->height-4)));
 		if(t->w != ct->w)
 			winunlock(ct->w);
 		free(r);
 	}
 
-   Return:
+Return:
 	free(e.name);
 	free(e.bname);
 }
