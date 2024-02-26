@@ -146,22 +146,20 @@ lookup(Rune *r, int n)
 	return nil;
 }
 
-int
-isexecc(int c)
+static int
+isexecc(Rune r)
 {
-	if(isfilec(c))
-		return 1;
-	return c=='<' || c=='|' || c=='>';
+	return isfilec(r) || r=='<' || r=='|' || r=='>';
 }
 
 void
 execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 {
 	uint q0, q1;
-	Rune *r, *s;
+	int n, f, ec;
+	Rune c, *r, *s;
 	char *b, *a, *aa;
 	Exectab *e;
-	int c, n, f;
 	Runestr dir;
 
 	q0 = aq0;
@@ -202,28 +200,28 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 			}
 			f |= 8;
 		}
-		c = 'x';
+		ec = 'x';
 		if(t->what == Body)
-			c = 'X';
+			ec = 'X';
 		n = aq1-aq0;
 		if(n <= EVENTSIZE)
-			winevent(t->w, "%c%d %d %d %d %.*S\n", c, aq0, aq1, f, n, n, r);
+			winevent(t->w, "%c%ud %ud %d %d %.*S\n", ec, aq0, aq1, f, n, n, r);
 		else
-			winevent(t->w, "%c%d %d %d 0 \n", c, aq0, aq1, f);
+			winevent(t->w, "%c%ud %ud %d 0 \n", ec, aq0, aq1, f);
 		if(q0!=aq0 || q1!=aq1){
 			n = q1-q0;
 			bufread(&t->file->b, q0, r, n);
 			if(n <= EVENTSIZE)
-				winevent(t->w, "%c%d %d 0 %d %.*S\n", c, q0, q1, n, n, r);
+				winevent(t->w, "%c%ud %ud 0 %d %.*S\n", ec, q0, q1, n, n, r);
 			else
-				winevent(t->w, "%c%d %d 0 0 \n", c, q0, q1);
+				winevent(t->w, "%c%ud %ud 0 0 \n", ec, q0, q1);
 		}
 		if(a){
-			winevent(t->w, "%c0 0 0 %d %s\n", c, utflen(a), a);
+			winevent(t->w, "%c0 0 0 %d %s\n", ec, utflen(a), a);
 			if(aa)
-				winevent(t->w, "%c0 0 0 %d %s\n", c, utflen(aa), aa);
+				winevent(t->w, "%c0 0 0 %d %s\n", ec, utflen(aa), aa);
 			else
-				winevent(t->w, "%c0 0 0 0 \n", c);
+				winevent(t->w, "%c0 0 0 0 \n", ec);
 		}
 		free(r);
 		free(aa);

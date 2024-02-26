@@ -26,27 +26,20 @@ enum
 };
 
 int
-isaddrc(int r)
+isaddrc(Rune r)
 {
-	if(r && utfrune("0123456789+-/$.#,;?", r)!=nil)
-		return TRUE;
-	return FALSE;
+	return r!=0 && utfrune("0123456789+-/$.#,;?", r)!=nil;
 }
 
 /*
- * quite hard: could be almost anything but white space, but we are a little conservative,
- * aiming for regular expressions of alphanumerics and no white space
+ * Quite hard: could be almost anything but white space, but we
+ * are a little conservative, aiming for regular expressions of
+ * alphanumerics and no white space.
  */
 int
-isregexc(int r)
+isregexc(Rune r)
 {
-	if(r == 0)
-		return FALSE;
-	if(isalnum(r))
-		return TRUE;
-	if(utfrune("^+-.*?#,;[]()$", r)!=nil)
-		return TRUE;
-	return FALSE;
+	return r!=0 && (isalnum(r) || utfrune("^+-.*?#,;[]()$", r)!=nil);
 }
 
 /*
