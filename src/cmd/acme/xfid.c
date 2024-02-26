@@ -908,7 +908,6 @@ xfideventwrite(Xfid *x, Window *w)
 			goto Rescue;
 		}
 		qunlock(&row.lk);
-
 	}
 
 Out:

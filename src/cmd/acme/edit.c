@@ -472,8 +472,7 @@ parsecmd(int nest)
 {
 	int i, c;
 	struct cmdtab *ct;
-	Cmd *cp, *ncp;
-	Cmd cmd;
+	Cmd cmd, *cp, *ncp;
 
 	cmd.next = cmd.u.cmd = 0;
 	cmd.re = 0;
@@ -500,8 +499,8 @@ parsecmd(int nest)
 		if(ct->regexp){
 			/* x without pattern -> .*\n, indicated by cmd.re==0 */
 			/* X without pattern is all files */
-			if((ct->cmdc!='x' && ct->cmdc!='X') ||
-			   ((c = nextc())!=' ' && c!='\t' && c!='\n')){
+			if((ct->cmdc!='x' && ct->cmdc!='X')
+			|| ((c=nextc())!=' ' && c!='\t' && c!='\n')){
 				cmdskipbl();
 				if((c = getch())=='\n' || c<0)
 					editerror("no address");
@@ -515,7 +514,6 @@ parsecmd(int nest)
 						if(nextc() == 'g')
 							cmd.flag = getch();
 					}
-
 				}
 			}
 		}

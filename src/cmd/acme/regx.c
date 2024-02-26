@@ -691,14 +691,6 @@ Return:
 	return sel.r[0].q0 >= 0;
 }
 
-void
-newmatch(Rangeset *sp)
-{
-	if(sel.r[0].q0<0 || sp->r[0].q0<sel.r[0].q0 ||
-	   (sp->r[0].q0==sel.r[0].q0 && sp->r[0].q1>sel.r[0].q1))
-		sel = *sp;
-}
-
 int
 rxbexecute(Text *t, uint startp, Rangeset *rp)
 {
@@ -831,13 +823,23 @@ Return:
 }
 
 void
+newmatch(Rangeset *sp)
+{
+	if(sel.r[0].q0<0 || sp->r[0].q0<sel.r[0].q0
+	|| (sp->r[0].q0==sel.r[0].q0 && sp->r[0].q1>sel.r[0].q1))
+		sel = *sp;
+}
+
+void
 bnewmatch(Rangeset *sp)
 {
-        int  i;
+	int i;
 
-        if(sel.r[0].q0<0 || sp->r[0].q0>sel.r[0].q1 || (sp->r[0].q0==sel.r[0].q1 && sp->r[0].q1<sel.r[0].q0))
-                for(i = 0; i<NRange; i++){       /* note the reversal; q0<=q1 */
-                        sel.r[i].q0 = sp->r[i].q1;
-                        sel.r[i].q1 = sp->r[i].q0;
-                }
+	if(sel.r[0].q0<0 || sp->r[0].q0>sel.r[0].q1
+	|| (sp->r[0].q0==sel.r[0].q1 && sp->r[0].q1<sel.r[0].q0))
+		for(i=0; i<NRange; i++){
+			/* note the reversal; q0<=q1 */
+			sel.r[i].q0 = sp->r[i].q1;
+			sel.r[i].q1 = sp->r[i].q0;
+		}
 }

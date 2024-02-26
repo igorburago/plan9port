@@ -406,8 +406,8 @@ info(Message *m, int ind, int ogf)
 	i = eappend(i, "\t", p);
 	i = egrow(i, "\t", stripdate(m->date));
 	if(ind == 0){
-		if(strcmp(m->type, "text")!=0 && strncmp(m->type, "text/", 5)!=0 &&
-		   strncmp(m->type, "multipart/", 10)!=0)
+		if(strcmp(m->type, "text")!=0 && strncmp(m->type, "text/", 5)!=0
+		&& strncmp(m->type, "multipart/", 10)!=0)
 			i = egrow(i, "\t(", estrstrdup(m->type, ")"));
 	}else if(strncmp(m->type, "multipart/", 10) != 0)
 		i = egrow(i, "\t(", estrstrdup(m->type, ")"));
@@ -771,7 +771,7 @@ mesgcommand(Message *m, char *cmd)
 
 	ret = 0;
 
-    Return:
+Return:
 	free(cmd);
 	return ret;
 }
@@ -1303,7 +1303,7 @@ mesgopen(Message *mbox, char *dir, char *s, Message *mesg, int plumbed, char *di
 	/* separate it on slashes */
 	ndirelem = tokenizec(u, direlem, nelem(direlem), "/");
 	if(ndirelem <= 0){
-    Error:
+	Error:
 		free(u);
 		return 0;
 	}

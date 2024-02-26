@@ -72,9 +72,9 @@ cmdexec(Text *t, Cmd *cp)
 		w = nil;
 	else
 		w = t->w;
-	if(w==nil && (cp->addr==0 || cp->addr->type!='"') &&
-	    !utfrune("bBnqUXY!", cp->cmdc) &&
-	    !(cp->cmdc=='D' && cp->u.text))
+	if(w==nil && (cp->addr==0 || cp->addr->type!='"')
+	&& utfrune("bBnqUXY!", cp->cmdc)==nil
+	&& !(cp->cmdc=='D' && cp->u.text!=nil))
 		editerror("no current window");
 	i = cmdlookup(cp->cmdc);	/* will be -1 for '{' */
 	f = nil;
@@ -497,7 +497,7 @@ s_cmd(Text *t, Cmd *cp)
 					for(k=0; k<sel.r[j].q1-sel.r[j].q0; k++)
 						Straddc(buf, rbuf[k]);
 				}else
-				 	Straddc(buf, c);
+					Straddc(buf, c);
 			}else if(c != '&')
 				Straddc(buf, c);
 			else{

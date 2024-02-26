@@ -132,7 +132,6 @@ fileundelete(File *f, Buffer *delta, uint p0, uint p1)
 	}
 	fbuffree(buf);
 	bufinsert(delta, delta->nc, (Rune*)&u, Undosize);
-
 }
 
 void

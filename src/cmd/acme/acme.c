@@ -413,7 +413,7 @@ acmeerrorinit(void)
 	fd = create(acmeerrorfile, OWRITE, 0666);
 	if(fd < 0){
 		remove(acmeerrorfile);
-  		fd = create(acmeerrorfile, OWRITE, 0666);
+		fd = create(acmeerrorfile, OWRITE, 0666);
 		if(fd < 0)
 			error("can't create acmeerror file");
 	}

@@ -494,7 +494,7 @@ mboxcommand(Window *w, char *s)
 		fswrite(searchfd, save, strlen(save));
 		fsseek(searchfd, 0, 0);
 		j = fsread(searchfd, buf, sizeof buf - 1);
- 		if(j == 0){
+		if(j == 0){
 			fprint(2, "[%s] search %s: no results found\n", mboxname, save);
 			fsclose(searchfd);
 			free(save);
