@@ -463,7 +463,7 @@ struct Expand
 		Text	*at;
 		Rune	*ar;
 	} u;
-	int	(*agetc)(void*, uint);
+	Rune	(*agetc)(void*, uint);
 	int	a0;
 	int	a1;
 };

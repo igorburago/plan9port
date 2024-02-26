@@ -341,13 +341,13 @@ isalnum(Rune c)
 	return TRUE;
 }
 
-int
-rgetc(void *v, uint n)
+Rune
+rgetc(void *a, uint n)
 {
-	return ((Rune*)v)[n];
+	return ((Rune*)a)[n];
 }
 
-int
+Rune
 tgetc(void *a, uint n)
 {
 	Text *t;

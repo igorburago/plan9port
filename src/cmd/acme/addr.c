@@ -193,7 +193,7 @@ regexp(uint showerr, Text *t, Range lim, Range r, Rune *pat, int dir, int *found
 }
 
 Range
-address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, int (*getc)(void*, uint),  int *evalp, uint *qp)
+address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, Rune (*getc)(void*, uint),  int *evalp, uint *qp)
 {
 	Range r, nr;
 	uint q, n, npat, npatalloc;

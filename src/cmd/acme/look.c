@@ -220,17 +220,6 @@ look3(Text *t, uint q0, uint q1, int external)
 	free(e.bname);
 }
 
-int
-plumbgetc(void *a, uint n)
-{
-	Rune *r;
-
-	r = a;
-	if(n>runestrlen(r))
-		return 0;
-	return r[n];
-}
-
 void
 plumblook(Plumbmsg *m)
 {
@@ -254,12 +243,12 @@ plumblook(Plumbmsg *m)
 	addr = plumblookup(m->attr, "addr");
 	if(addr != nil){
 		e.u.ar = bytetorune(addr, &e.a1);
-		e.agetc = plumbgetc;
+		e.agetc = rgetc;
 	}
 	drawtopwindow();
 	openfile(nil, &e);
 	free(e.name);
-	free(e.u.at);
+	free(e.u.ar);
 }
 
 void
