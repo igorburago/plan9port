@@ -341,11 +341,11 @@ colgrow(Column *c, Window *w, int but)
 			goto Found;
 	error("can't find window");
 
-  Found:
+Found:
 	cr = c->r;
 	if(but < 0){	/* make sure window fills its own space properly */
 		r = w->r;
-		if(i==c->nw-1 || c->safe==FALSE)
+		if(i==c->nw-1 || !c->safe)
 			r.max.y = cr.max.y;
 		else
 			r.max.y = c->w[i+1]->r.min.y - Border;

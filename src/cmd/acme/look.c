@@ -342,8 +342,8 @@ search(Text *ct, Rune *r, uint n)
 			b[nb] = '\0';
 		}
 		/* this runeeq is fishy but the null at b[nb] makes it safe */
-		if(runeeq(b, n, r, n)==TRUE){
-			if(ct->w){
+		if(runeeq(b, n, r, n)){
+			if(ct->w != nil){
 				textshow(ct, q, q+n, 1);
 				winsettag(ct->w);
 			}else{
@@ -354,7 +354,7 @@ search(Text *ct, Rune *r, uint n)
 			fbuffree(s);
 			return TRUE;
 		}
-		--nb;
+		nb--;
 		b++;
 		q++;
 		if(around && q>=ct->q1)
@@ -795,10 +795,10 @@ openfile(Text *t, Expand *e)
 			eval = FALSE;
 			warning(nil, "addresses out of order\n");
 		}
-		if(eval == FALSE)
+		if(!eval)
 			e->jump = FALSE;	/* don't jump if invalid address */
 	}
-	if(eval == FALSE){
+	if(!eval){
 		r.q0 = t->q0;
 		r.q1 = t->q1;
 	}

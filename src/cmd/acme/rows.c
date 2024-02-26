@@ -165,17 +165,18 @@ rowdragcol(Row *row, Column *c, int _0)
 			goto Found;
 	error("can't find column");
 
-  Found:
+Found:
 	p = mouse->xy;
 	if((abs(p.x-op.x)<5 && abs(p.y-op.y)<5))
 		return;
-	if((i>0 && p.x<row->col[i-1]->r.min.x) || (i<row->ncol-1 && p.x>c->r.max.x)){
+	if((i>0 && p.x<row->col[i-1]->r.min.x)
+	|| (i<row->ncol-1 && p.x>c->r.max.x)){
 		/* shuffle */
 		x = c->r.min.x;
 		rowclose(row, c, FALSE);
-		if(rowadd(row, c, p.x) == nil)	/* whoops! */
-		if(rowadd(row, c, x) == nil)		/* WHOOPS! */
-		if(rowadd(row, c, -1)==nil){		/* shit! */
+		if(rowadd(row, c, p.x)==nil	/* whoops! */
+		&& rowadd(row, c, x)==nil	/* WHOOPS! */
+		&& rowadd(row, c, -1)==nil){	/* shit! */
 			rowclose(row, c, TRUE);
 			return;
 		}
@@ -215,7 +216,7 @@ rowclose(Row *row, Column *c, int dofree)
 		if(row->col[i] == c)
 			goto Found;
 	error("can't find column");
-  Found:
+Found:
 	r = c->r;
 	if(dofree)
 		colcloseall(c);
@@ -414,7 +415,7 @@ rowdump(Row *row, char *file)
 					0, 0,
 					100.0*(w->r.min.y-c->r.min.y)/Dy(c->r),
 					fontname);
-			}else if((w->dirty==FALSE && access(a, 0)==0) || w->isdir){
+			}else if((!w->dirty && access(a, 0)==0) || w->isdir){
 				dumped = FALSE;
 				t->file->dumpid = w->id;
 				Bprint(b, "f%11d %11d %11d %11d %11.7f %s\n", i, w->id,
@@ -465,7 +466,7 @@ rowdump(Row *row, char *file)
 				else
 					Bprint(b, "\n%s\n", w->dumpstr);
 			}
-    Continue2:;
+		Continue2:;
 		}
 	}
 	Bterm(b);
@@ -473,18 +474,17 @@ rowdump(Row *row, char *file)
 	free(b);
 	fbuffree(r);
 
-   Rescue:
+Rescue:
 	fbuffree(buf);
 }
 
-static
-char*
+static char*
 rdline(Biobuf *b, int *linep)
 {
 	char *l;
 
 	l = Brdline(b, '\n');
-	if(l)
+	if(l != nil)
 		(*linep)++;
 	return l;
 }
@@ -517,7 +517,7 @@ rowloadfonts(char *file)
 			fontnames[i] = estrdup(l);
 		}
 	}
-    Return:
+Return:
 	Bterm(b);
 }
 

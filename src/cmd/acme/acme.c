@@ -780,9 +780,9 @@ waitthread(void *arg)
 		case WKill:
 			found = FALSE;
 			ncmd = runestrlen(cmd);
-			for(c=command; c; c=c->next){
+			for(c=command; c!=nil; c=c->next){
 				/* -1 for blank */
-				if(runeeq(c->name, c->nname-1, cmd, ncmd) == TRUE){
+				if(runeeq(c->name, c->nname-1, cmd, ncmd)){
 					if(postnote(PNGROUP, c->pid, "kill") < 0)
 						warning(nil, "kill %S: %r\n", cmd);
 					found = TRUE;

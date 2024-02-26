@@ -384,7 +384,7 @@ winsetname(Window *w, Rune *name, int n)
 	static Rune Lpluserrors[] = { '+', 'E', 'r', 'r', 'o', 'r', 's', 0 };
 
 	t = &w->body;
-	if(runeeq(t->file->name, t->file->nname, name, n) == TRUE)
+	if(runeeq(t->file->name, t->file->nname, name, n))
 		return;
 	w->isscratch = FALSE;
 	if(n>=6 && runeeq(Lslashguide, 6, name+(n-6), 6))
@@ -600,7 +600,7 @@ winsettag1(Window *w)
 	if(w->tag.ncache!=0 || w->tag.file->mod)
 		wincommit(w, &w->tag);	/* check file name; also guarantees we can modify tag contents */
 	old = parsetag(w, 0, &i);
-	if(runeeq(old, i, w->body.file->name, w->body.file->nname) == FALSE){
+	if(!runeeq(old, i, w->body.file->name, w->body.file->nname)){
 		textdelete(&w->tag, 0, i, TRUE);
 		textinsert(&w->tag, 0, w->body.file->name, w->body.file->nname, TRUE);
 		free(old);
@@ -639,7 +639,7 @@ winsettag1(Window *w)
 	runemove(new+i, Lpipe, 2);
 	i += 2;
 	r = runestrchr(old, '|');
-	if(r)
+	if(r != nil)
 		k = r-old+1;
 	else{
 		k = w->tag.file->b.nc;
@@ -652,7 +652,7 @@ winsettag1(Window *w)
 
 	/* replace tag if the new one is different */
 	resize = 0;
-	if(runeeq(new, i, old, k) == FALSE){
+	if(!runeeq(new, i, old, k)){
 		resize = 1;
 		n = k;
 		if(n > i)
@@ -666,7 +666,7 @@ winsettag1(Window *w)
 		textinsert(&w->tag, j, new+j, i-j, TRUE);
 		/* try to preserve user selection */
 		r = runestrchr(old, '|');
-		if(r){
+		if(r != nil){
 			bar = r-old;
 			if(q0 > bar){
 				bar = (runestrchr(new, '|')-new)-bar;
@@ -721,7 +721,7 @@ wincommit(Window *w, Text *t)
 	if(t->what == Body)
 		return;
 	r = parsetag(w, 0, &i);
-	if(runeeq(r, i, w->body.file->name, w->body.file->nname) == FALSE){
+	if(!runeeq(r, i, w->body.file->name, w->body.file->nname)){
 		seq++;
 		filemark(w->body.file);
 		w->body.file->mod = TRUE;

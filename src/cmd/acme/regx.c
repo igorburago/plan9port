@@ -200,7 +200,7 @@ rxcompile(Rune *r)
 	Inst *oprogp;
 
 	nr = runestrlen(r)+1;
-	if(runeeq(lastregexp, runestrlen(lastregexp)+1, r, nr)==TRUE)
+	if(runeeq(lastregexp, runestrlen(lastregexp)+1, r, nr))
 		return TRUE;
 	lastregexp[0] = 0;
 	for(i=0; i<nclass; i++)

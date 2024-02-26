@@ -160,13 +160,13 @@ regexp(uint showerr, Text *t, Range lim, Range r, Rune *pat, int dir, int *found
 	Rangeset sel;
 	int q;
 
-	if(pat[0] == '\0' && rxnull()){
+	if(pat[0]=='\0' && rxnull()){
 		if(showerr)
 			warning(nil, "no previous regular expression\n");
 		*foundp = FALSE;
 		return r;
 	}
-	if(pat[0] && rxcompile(pat) == FALSE){
+	if(pat[0]!='\0' && !rxcompile(pat)){
 		*foundp = FALSE;
 		return r;
 	}

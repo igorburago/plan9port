@@ -172,7 +172,7 @@ xfidopen(Xfid *x)
 			w->nomark = TRUE;
 			break;
 		case QWeditout:
-			if(editing == FALSE){
+			if(!editing){
 				winunlock(w);
 				respond(x, &fc, Eperm);
 				return;
@@ -217,7 +217,7 @@ xfidclose(Xfid *x)
 	w = x->f->w;
 	x->f->busy = FALSE;
 	x->f->w = nil;
-	if(x->f->open == FALSE){
+	if(!x->f->open){
 		if(w != nil)
 			winclose(w);
 		respond(x, &fc, nil);
@@ -541,7 +541,7 @@ xfidwrite(Xfid *x)
 		}
 		r = runemalloc(x->fcall.count);
 		cvttorunes(x->fcall.data, x->fcall.count, r, &nb, &nr, nil);
-		if(w->nomark == FALSE){
+		if(!w->nomark){
 			seq++;
 			filemark(t->file);
 		}
@@ -590,7 +590,7 @@ xfidwrite(Xfid *x)
 			if(qid == QWtag)
 				textinsert(t, q0, r, nr, TRUE);
 			else{
-				if(w->nomark == FALSE){
+				if(!w->nomark){
 					seq++;
 					filemark(t->file);
 				}

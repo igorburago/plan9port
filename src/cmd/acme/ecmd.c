@@ -307,7 +307,7 @@ e_cmd(Text *t, Cmd *cp)
 	q0 = addr.r.q0;
 	q1 = addr.r.q1;
 	if(cp->cmdc == 'e'){
-		if(winclean(t->w, TRUE)==FALSE)
+		if(!winclean(t->w, TRUE))
 			editerror("");	/* winclean generated message already */
 		q0 = 0;
 		q1 = f->b.nc;
@@ -374,9 +374,9 @@ g_cmd(Text *t, Cmd *cp)
 		warning(nil, "internal error: g_cmd f!=addr.f\n");
 		return FALSE;
 	}
-	if(rxcompile(cp->re->r) == FALSE)
+	if(!rxcompile(cp->re->r))
 		editerror("bad regexp in g command");
-	if(rxexecute(t, nil, addr.r.q0, addr.r.q1, &sel) ^ cp->cmdc=='v'){
+	if(rxexecute(t, nil, addr.r.q0, addr.r.q1, &sel) ^ (cp->cmdc=='v')){
 		t->q0 = addr.r.q0;
 		t->q1 = addr.r.q1;
 		return cmdexec(t, cp->u.cmd);
@@ -455,14 +455,14 @@ s_cmd(Text *t, Cmd *cp)
 	Rune *rbuf;
 
 	n = cp->num;
-	op= -1;
-	if(rxcompile(cp->re->r) == FALSE)
+	op = -1;
+	if(!rxcompile(cp->re->r))
 		editerror("bad regexp in s command");
 	nrp = 0;
 	rp = nil;
 	delta = 0;
 	didsub = FALSE;
-	for(p1 = addr.r.q0; p1<=addr.r.q1 && rxexecute(t, nil, p1, addr.r.q1, &sel); ){
+	for(p1=addr.r.q0; p1<=addr.r.q1 && rxexecute(t, nil, p1, addr.r.q1, &sel); ){
 		if(sel.r[0].q0 == sel.r[0].q1){	/* empty match? */
 			if(sel.r[0].q0 == op){
 				p1++;
@@ -472,7 +472,7 @@ s_cmd(Text *t, Cmd *cp)
 		}else
 			p1 = sel.r[0].q1;
 		op = sel.r[0].q1;
-		if(--n>0)
+		if(--n > 0)
 			continue;
 		nrp++;
 		rp = erealloc(rp, nrp*sizeof(Rangeset));
@@ -484,8 +484,8 @@ s_cmd(Text *t, Cmd *cp)
 		buf->n = 0;
 		buf->r[0] = '\0';
 		sel = rp[m];
-		for(i = 0; i<cp->u.text->n; i++)
-			if((c = cp->u.text->r[i])=='\\' && i<cp->u.text->n-1){
+		for(i=0; i<cp->u.text->n; i++)
+			if((c=cp->u.text->r[i])=='\\' && i<cp->u.text->n-1){
 				c = cp->u.text->r[++i];
 				if('1'<=c && c<='9') {
 					j = c-'0';
@@ -498,10 +498,10 @@ s_cmd(Text *t, Cmd *cp)
 						Straddc(buf, rbuf[k]);
 				}else
 				 	Straddc(buf, c);
-			}else if(c!='&')
+			}else if(c != '&')
 				Straddc(buf, c);
 			else{
-				if(sel.r[0].q1-sel.r[0].q0>RBUFSIZE){
+				if(sel.r[0].q1-sel.r[0].q0 > RBUFSIZE){
 					err = "right hand side too long in substitution";
 					goto Err;
 				}
@@ -857,21 +857,21 @@ looper(File *f, Cmd *cp, int xy)
 	Range *rp;
 
 	r = addr.r;
-	op= xy? -1 : r.q0;
+	op = xy ? -1 : r.q0;
 	nest++;
-	if(rxcompile(cp->re->r) == FALSE)
+	if(!rxcompile(cp->re->r))
 		editerror("bad regexp in %c command", cp->cmdc);
 	nrp = 0;
 	rp = nil;
-	for(p = r.q0; p<=r.q1; ){
-		if(!rxexecute(f->curtext, nil, p, r.q1, &sel)){ /* no match, but y should still run */
+	for(p=r.q0; p<=r.q1; ){
+		if(!rxexecute(f->curtext, nil, p, r.q1, &sel)){	/* no match, but y should still run */
 			if(xy || op>r.q1)
 				break;
 			tr.q0 = op, tr.q1 = r.q1;
 			p = r.q1+1;	/* exit next loop */
 		}else{
-			if(sel.r[0].q0==sel.r[0].q1){	/* empty match? */
-				if(sel.r[0].q0==op){
+			if(sel.r[0].q0 == sel.r[0].q1){	/* empty match? */
+				if(sel.r[0].q0 == op){
 					p++;
 					continue;
 				}
@@ -890,7 +890,7 @@ looper(File *f, Cmd *cp, int xy)
 	}
 	loopcmd(f, cp->u.cmd, rp, nrp);
 	free(rp);
-	--nest;
+	nest--;
 }
 
 void
@@ -1002,14 +1002,14 @@ filelooper(Text *t, Cmd *cp, int XY)
 	 */
 	allwindows(alllocker, (void*)1);
 	globalincref = 1;
-	
+
 	/*
 	 * Unlock the window running the X command.
 	 * We'll need to lock and unlock each target window in turn.
 	 */
 	if(t && t->w)
 		winunlock(t->w);
-	
+
 	for(i=0; i<loopstruct.nw; i++) {
 		targ = &loopstruct.w[i]->body;
 		if(targ && targ->w)
@@ -1034,7 +1034,7 @@ filelooper(Text *t, Cmd *cp, int XY)
 void
 nextmatch(File *f, String *r, long p, int sign)
 {
-	if(rxcompile(r->r) == FALSE)
+	if(!rxcompile(r->r))
 		editerror("bad regexp in command address");
 	if(sign >= 0){
 		if(!rxexecute(f->curtext, nil, p, 0x7FFFFFFFL, &sel))
@@ -1232,7 +1232,7 @@ filematch(File *f, String *r)
 	Rangeset s;
 
 	/* compile expr first so if we get an error, we haven't allocated anything */
-	if(rxcompile(r->r) == FALSE)
+	if(!rxcompile(r->r))
 		editerror("bad regexp in file match");
 	buf = fbufalloc();
 	w = f->curtext->w;

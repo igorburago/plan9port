@@ -710,9 +710,9 @@ newfid(int fid)
 	for(f=*fh; f; f=f->next)
 		if(f->fid == fid)
 			return f;
-		else if(ff==nil && f->busy==FALSE)
+		else if(ff==nil && !f->busy)
 			ff = f;
-	if(ff){
+	if(ff != nil){
 		ff->fid = fid;
 		return ff;
 	}

@@ -140,8 +140,8 @@ lookup(Rune *r, int n)
 		return nil;
 	findbl(r, n, &nr);
 	nr = n-nr;
-	for(e=exectab; e->name; e++)
-		if(runeeq(r, nr, e->name, runestrlen(e->name)) == TRUE)
+	for(e=exectab; e->name!=nil; e++)
+		if(runeeq(r, nr, e->name, runestrlen(e->name)))
 			return e;
 	return nil;
 }
