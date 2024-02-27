@@ -687,11 +687,11 @@ threadrwakeup(Rendez *r, int all, ulong pc)
 /*
  * startup
  */
+static int	threadargc;
+static char	**threadargv;
+int		mainstacksize;
+extern int	_p9usepwlibrary;	/* getgrgid etc. smash the stack - tell _p9dir just say no */
 
-static int threadargc;
-static char **threadargv;
-int mainstacksize;
-extern int _p9usepwlibrary;	/* getgrgid etc. smash the stack - tell _p9dir just say no */
 static void
 threadmainstart(void *v)
 {
@@ -715,18 +715,29 @@ extern void (*_sysfatal)(char*, va_list);
 int
 main(int argc, char **argv)
 {
+	int daemonize;
+	char *opts;
 	Proc *p;
 	_Thread *t;
-	char *opts;
 
 	argv0 = argv[0];
 
-	opts = getenv("LIBTHREAD");
-	if(opts == nil)
-		opts = "";
+	if(threadmaybackground()){
+		daemonize = 1;
 
-	if(threadmaybackground() && strstr(opts, "nodaemon") == nil && getenv("NOLIBTHREADDAEMONIZE") == nil)
-		_threadsetupdaemonize();
+		opts = getenv("LIBTHREAD");
+		if(opts!=nil && strstr(opts, "nodaemon")!=nil)
+			daemonize = 0;
+		free(opts);
+
+		opts = getenv("NOLIBTHREADDAEMONIZE");
+		if(opts!=nil && opts[0]=='1' && opts[1]=='\0')
+			daemonize = 0;
+		free(opts);
+
+		if(daemonize)
+			_threadsetupdaemonize();
+	}
 
 	threadargc = argc;
 	threadargv = argv;
