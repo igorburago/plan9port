@@ -24,40 +24,35 @@ typedef struct Rectangle	Rectangle;
 typedef struct Screen		Screen;
 typedef struct Subfont		Subfont;
 
-struct Mux;
+#define DOpaque		0xFFFFFFFF
+#define DTransparent	0x00000000	/* only useful for allocimage memfillcolor */
+#define DBlack		0x000000FF
+#define DWhite		0xFFFFFFFF
+#define DRed		0xFF0000FF
+#define DGreen		0x00FF00FF
+#define DBlue		0x0000FFFF
+#define DCyan		0x00FFFFFF
+#define DMagenta	0xFF00FFFF
+#define DYellow		0xFFFF00FF
+#define DPaleyellow	0xFFFFAAFF
+#define DDarkyellow	0xEEEE9EFF
+#define DDarkgreen	0x448844FF
+#define DPalegreen	0xAAFFAAFF
+#define DMedgreen	0x88CC88FF
+#define DDarkblue	0x000055FF
+#define DPalebluegreen	0xAAFFFFFF
+#define DPaleblue	0x0000BBFF
+#define DBluegreen	0x008888FF
+#define DGreygreen	0x55AAAAFF
+#define DPalegreygreen	0x9EEEEEFF
+#define DYellowgreen	0x99994CFF
+#define DMedblue	0x000099FF
+#define DGreyblue	0x005DBBFF
+#define DPalegreyblue	0x4993DDFF
+#define DPurpleblue	0x8888CCFF
 
-extern	int	Rfmt(Fmt*);
-extern	int	Pfmt(Fmt*);
-
-#define 	DOpaque		0xFFFFFFFF
-#define 	DTransparent	0x00000000		/* only useful for allocimage memfillcolor */
-#define 	DBlack		0x000000FF
-#define 	DWhite		0xFFFFFFFF
-#define 	DRed		0xFF0000FF
-#define 	DGreen		0x00FF00FF
-#define 	DBlue		0x0000FFFF
-#define 	DCyan		0x00FFFFFF
-#define 	DMagenta		0xFF00FFFF
-#define 	DYellow		0xFFFF00FF
-#define 	DPaleyellow	0xFFFFAAFF
-#define 	DDarkyellow	0xEEEE9EFF
-#define 	DDarkgreen	0x448844FF
-#define 	DPalegreen	0xAAFFAAFF
-#define 	DMedgreen	0x88CC88FF
-#define 	DDarkblue	0x000055FF
-#define 	DPalebluegreen 0xAAFFFFFF
-#define 	DPaleblue		0x0000BBFF
-#define 	DBluegreen	0x008888FF
-#define 	DGreygreen	0x55AAAAFF
-#define 	DPalegreygreen	0x9EEEEEFF
-#define 	DYellowgreen	0x99994CFF
-#define 	DMedblue		0x000099FF
-#define 	DGreyblue	0x005DBBFF
-#define 	DPalegreyblue	0x4993DDFF
-#define 	DPurpleblue	0x8888CCFF
-
-#define 	DNotacolor	0xFFFFFF00
-#define 	DNofill		DNotacolor
+#define DNotacolor	0xFFFFFF00
+#define DNofill		DNotacolor
 
 enum
 {
@@ -74,7 +69,7 @@ enum
 	Refnone		= 1,
 	Refmesg		= 2
 };
-#define	NOREFRESH	((void*)-1)
+#define NOREFRESH	((void*)-1)
 
 enum
 {
@@ -85,7 +80,7 @@ enum
 	Endmask		= 0x1F
 };
 
-#define	ARROW(a, b, c)	(Endarrow|((a)<<5)|((b)<<14)|((c)<<23))
+#define ARROW(a, b, c)	(Endarrow|((a)<<5)|((b)<<14)|((c)<<23))
 
 typedef enum
 {
@@ -107,13 +102,12 @@ typedef enum
 	DatopS	= DinS|SoutD,
 	DxorS	= DoutS|SoutD,	/* == SxorD */
 
-	Ncomp = 12
+	Ncomp	= 12
 } Drawop;
 
-/*
- * image channel descriptors
- */
-enum {
+enum
+{
+	/* image channel descriptors */
 	CRed = 0,
 	CGreen,
 	CBlue,
@@ -125,15 +119,16 @@ enum {
 };
 
 #define __DC(type, nbits)	((((type)&15)<<4)|((nbits)&15))
-#define CHAN1(a,b)	__DC(a,b)
-#define CHAN2(a,b,c,d)	(CHAN1((a),(b))<<8|__DC((c),(d)))
+#define CHAN1(a,b)		__DC(a,b)
+#define CHAN2(a,b,c,d)		(CHAN1((a),(b))<<8|__DC((c),(d)))
 #define CHAN3(a,b,c,d,e,f)	(CHAN2((a),(b),(c),(d))<<8|__DC((e),(f)))
 #define CHAN4(a,b,c,d,e,f,g,h)	(CHAN3((a),(b),(c),(d),(e),(f))<<8|__DC((g),(h)))
 
-#define NBITS(c) ((c)&15)
-#define TYPE(c) (((c)>>4)&15)
+#define NBITS(c)	((c)&15)
+#define TYPE(c)		(((c)>>4)&15)
 
-enum {
+enum
+{
 	GREY1	= CHAN1(CGrey, 1),
 	GREY2	= CHAN1(CGrey, 2),
 	GREY4	= CHAN1(CGrey, 4),
@@ -146,15 +141,18 @@ enum {
 	RGBA32	= CHAN4(CRed, 8, CGreen, 8, CBlue, 8, CAlpha, 8),
 	ARGB32	= CHAN4(CAlpha, 8, CRed, 8, CGreen, 8, CBlue, 8),	/* stupid VGAs */
 	ABGR32	= CHAN4(CAlpha, 8, CBlue, 8, CGreen, 8, CRed, 8),
-	XRGB32  = CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8),
-	XBGR32  = CHAN4(CIgnore, 8, CBlue, 8, CGreen, 8, CRed, 8)
+	XRGB32	= CHAN4(CIgnore, 8, CRed, 8, CGreen, 8, CBlue, 8),
+	XBGR32	= CHAN4(CIgnore, 8, CBlue, 8, CGreen, 8, CRed, 8)
 };
 
-extern	char*	chantostr(char*, u32int);
-extern	u32int	strtochan(char*);
-extern	int		chantodepth(u32int);
+extern char*	chantostr(char*, u32int);
+extern u32int	strtochan(char*);
+extern int	chantodepth(u32int);
 
-struct	Point
+/* XXX backwards helps; should go */
+extern u32int	drawld2chan[];
+
+struct Point
 {
 	int	x;
 	int	y;
@@ -166,7 +164,10 @@ struct Rectangle
 	Point	max;
 };
 
-typedef void	(*Reffn)(Image*, Rectangle, void*);
+#define Dx(r)	((r).max.x-(r).min.x)
+#define Dy(r)	((r).max.y-(r).min.y)
+
+typedef void (*Reffn)(Image*, Rectangle, void*);
 
 struct Screen
 {
@@ -175,6 +176,8 @@ struct Screen
 	Image	*image;		/* unused; for reference only */
 	Image	*fill;		/* color to paint behind windows */
 };
+
+struct Mux;
 
 struct Display
 {
@@ -207,8 +210,8 @@ struct Display
 	int		srvfd;
 	int		dpi;
 
-	Font	*firstfont;
-	Font	*lastfont;
+	Font		*firstfont;
+	Font		*lastfont;
 };
 
 struct Image
@@ -216,9 +219,9 @@ struct Image
 	Display		*display;	/* display holding data */
 	int		id;		/* id of system-held Image */
 	Rectangle	r;		/* rectangle in data area, local coords */
-	Rectangle 	clipr;		/* clipping region */
+	Rectangle	clipr;		/* clipping region */
 	int		depth;		/* number of bits per pixel */
-	u32int	chan;
+	u32int		chan;
 	int		repl;		/* flag: data replicates to tile clipr */
 	Screen		*screen;	/* 0 if not a window */
 	Image		*next;	/* next in list of windows */
@@ -243,7 +246,7 @@ struct RGB
  * to draw characters in the specified color (itself an Image) in Image b.
  */
 
-struct	Fontchar
+struct Fontchar
 {
 	int		x;		/* left edge of bits */
 	uchar		top;		/* first non-zero scan-line */
@@ -252,13 +255,13 @@ struct	Fontchar
 	uchar		width;		/* width of baseline */
 };
 
-struct	Subfont
+struct Subfont
 {
 	char		*name;
 	short		n;		/* number of chars in font */
 	uchar		height;		/* height of image */
 	char		ascent;		/* top of image to baseline */
-	Fontchar 	*info;		/* n+1 character descriptors */
+	Fontchar	*info;		/* n+1 character descriptors */
 	Image		*bits;		/* of font */
 	int		ref;
 };
@@ -266,18 +269,18 @@ struct	Subfont
 enum
 {
 	/* starting values */
-	LOG2NFCACHE =	6,
-	NFCACHE =	(1<<LOG2NFCACHE),	/* #chars cached */
-	NFLOOK =	5,			/* #chars to scan in cache */
-	NFSUBF =	2,			/* #subfonts to cache */
+	LOG2NFCACHE	= 6,
+	NFCACHE		= (1<<LOG2NFCACHE),	/* #chars cached */
+	NFLOOK		= 5,			/* #chars to scan in cache */
+	NFSUBF		= 2,			/* #subfonts to cache */
 	/* max value */
-	MAXFCACHE =	1024+NFLOOK,		/* upper limit */
-	MAXSUBF =	50,			/* generous upper limit */
+	MAXFCACHE	= 1024+NFLOOK,		/* upper limit */
+	MAXSUBF		= 50,			/* generous upper limit */
 	/* deltas */
-	DSUBF = 	4,
+	DSUBF		= 4,
 	/* expiry ages */
-	SUBFAGE	=	10000,
-	CACHEAGE =	10000
+	SUBFAGE		= 10000,
+	CACHEAGE	= 10000
 };
 
 struct Cachefont
@@ -325,13 +328,13 @@ struct Font
 	Image		*cacheimage;
 
 	/* doubly linked list of fonts known to display */
-	int ondisplaylist;
-	Font *next;
-	Font *prev;
+	int		ondisplaylist;
+	Font		*next;
+	Font		*prev;
 
 	/* on hi-dpi systems, one of these is set to f and the other is the other-dpi version of f */
-	Font	*lodpi;
-	Font	*hidpi;
+	Font		*lodpi;
+	Font		*hidpi;
 };
 
 /*
@@ -346,9 +349,6 @@ struct Linesnapscroll
 	ushort	motionhaltdown;	/* same for down; set both to effectively cancel the motion */
 	uint	motionstopmsec;	/* Mouse.msec of when the last motion ended */
 };
-
-#define	Dx(r)	((r).max.x-(r).min.x)
-#define	Dy(r)	((r).max.y-(r).min.y)
 
 /*
  * Image management
@@ -369,23 +369,23 @@ extern int	loadimage(Image*, Rectangle, uchar*, int);
 extern int	cloadimage(Image*, Rectangle, uchar*, int);
 extern int	getwindow(Display*, int);
 extern int	gengetwindow(Display*, char*, Image**, Screen**, int);
-extern Image* readimage(Display*, int, int);
-extern Image* creadimage(Display*, int, int);
+extern Image*	readimage(Display*, int, int);
+extern Image*	creadimage(Display*, int, int);
 extern int	unloadimage(Image*, Rectangle, uchar*, int);
 extern int	wordsperline(Rectangle, int);
 extern int	writeimage(int, Image*, int);
 extern Image*	namedimage(Display*, char*);
 extern int	nameimage(Image*, char*, int);
-extern Image* allocimagemix(Display*, u32int, u32int);
+extern Image*	allocimagemix(Display*, u32int, u32int);
 extern int	drawsetlabel(char*);
 extern int	scalesize(Display*, int);
 
 /*
  * Colors
  */
-extern	void	readcolmap(Display*, RGB*);
-extern	void	writecolmap(Display*, RGB*);
-extern	u32int	setalpha(u32int, uchar);
+extern void	readcolmap(Display*, RGB*);
+extern void	writecolmap(Display*, RGB*);
+extern u32int	setalpha(u32int, uchar);
 
 /*
  * Windows
@@ -400,6 +400,9 @@ extern Screen*	publicscreen(Display*, int, u32int);
 extern void	topnwindows(Image**, int);
 extern void	topwindow(Image*);
 extern int	originwindow(Image*, Point, Point);
+
+extern void	drawresizewindow(Rectangle);
+extern void	drawtopwindow(void);
 
 /*
  * Geometry
@@ -424,12 +427,18 @@ extern int		rectclip(Rectangle*, Rectangle);
 extern int		ptinrect(Point, Rectangle);
 extern void		replclipr(Image*, int, Rectangle);
 extern int		drawreplxy(int, int, int);	/* used to be drawsetxy */
-extern Point	drawrepl(Rectangle, Point);
+extern Point		drawrepl(Rectangle, Point);
 extern int		rgb2cmap(int, int, int);
 extern int		cmap2rgb(int);
 extern int		cmap2rgba(int);
 extern void		icossin(int, int*, int*);
 extern void		icossin2(int, int, int*, int*);
+
+extern int	Pfmt(Fmt*);
+extern int	Rfmt(Fmt*);
+
+extern Point		ZP;	/* zero point */
+extern Rectangle	ZR;	/* zero rectangle */
 
 /*
  * Graphics
@@ -462,15 +471,15 @@ extern Point	runestringnbg(Image*, Point, Image*, Point, Font*, Rune*, int, Imag
 extern Point	runestringnbgop(Image*, Point, Image*, Point, Font*, Rune*, int, Image*, Point, Drawop);
 extern Point	_string(Image*, Point, Image*, Point, Font*, char*, Rune*, int, Rectangle, Image*, Point, Drawop);
 extern Point	stringsubfont(Image*, Point, Image*, Subfont*, char*);
-extern int		bezier(Image*, Point, Point, Point, Point, int, int, int, Image*, Point);
-extern int		bezierop(Image*, Point, Point, Point, Point, int, int, int, Image*, Point, Drawop);
-extern int		bezspline(Image*, Point*, int, int, int, int, Image*, Point);
-extern int		bezsplineop(Image*, Point*, int, int, int, int, Image*, Point, Drawop);
-extern int		bezsplinepts(Point*, int, Point**);
-extern int		fillbezier(Image*, Point, Point, Point, Point, int, Image*, Point);
-extern int		fillbezierop(Image*, Point, Point, Point, Point, int, Image*, Point, Drawop);
-extern int		fillbezspline(Image*, Point*, int, int, Image*, Point);
-extern int		fillbezsplineop(Image*, Point*, int, int, Image*, Point, Drawop);
+extern int	bezier(Image*, Point, Point, Point, Point, int, int, int, Image*, Point);
+extern int	bezierop(Image*, Point, Point, Point, Point, int, int, int, Image*, Point, Drawop);
+extern int	bezspline(Image*, Point*, int, int, int, int, Image*, Point);
+extern int	bezsplineop(Image*, Point*, int, int, int, int, Image*, Point, Drawop);
+extern int	bezsplinepts(Point*, int, Point**);
+extern int	fillbezier(Image*, Point, Point, Point, Point, int, Image*, Point);
+extern int	fillbezierop(Image*, Point, Point, Point, Point, int, Image*, Point, Drawop);
+extern int	fillbezspline(Image*, Point*, int, int, Image*, Point);
+extern int	fillbezsplineop(Image*, Point*, int, int, Image*, Point, Drawop);
 extern void	ellipse(Image*, Point, int, int, int, Image*, Point);
 extern void	ellipseop(Image*, Point, int, int, int, Image*, Point, Drawop);
 extern void	fillellipse(Image*, Point, int, int, Image*, Point);
@@ -511,9 +520,9 @@ extern Point	strsubfontwidth(Subfont*, char*);
 extern int	loadchar(Font*, Rune, Cacheinfo*, int, int, char**);
 extern char*	subfontname(char*, char*, int);
 extern Subfont*	_getsubfont(Display*, char*);
-extern void		lockdisplay(Display*);
+extern void	lockdisplay(Display*);
 extern void	unlockdisplay(Display*);
-extern int		drawlsetrefresh(u32int, int, void*, void*);
+extern int	drawlsetrefresh(u32int, int, void*, void*);
 extern void	loadhidpi(Font*);
 extern void	swapfont(Font*, Font**, Font**);
 
@@ -524,83 +533,72 @@ extern int	mousescrollsize(int);
 extern int	mouselinesnapscroll(Linesnapscroll*, Mouse*, int);
 
 /*
- * Predefined
- */
-extern	Point		ZP;
-extern	Rectangle	ZR;
-
-/*
- * Set up by initdraw()
- */
-extern	Display	*display;
-extern	Font		*font;
-extern	Image	*screen;
-extern	Screen	*_screen;
-extern	int	drawmousemask; /* set bits to disable receiving those buttons */
-extern	int	_cursorfd;
-extern	int	_drawdebug;	/* set to 1 to see errors from flushimage */
-extern	void	_setdrawop(Display*, Drawop);
-extern	Display	*_initdisplay(void(*)(Display*,char*), char*);
-
-extern	void	needdisplay(void); /* call instead of initdraw to get (null) variable linked in */
-
-#define	BGSHORT(p)		(((p)[0]<<0) | ((p)[1]<<8))
-#define	BGLONG(p)		((BGSHORT(p)<<0) | (BGSHORT(p+2)<<16))
-#define	BPSHORT(p, v)		((p)[0]=(v), (p)[1]=((v)>>8))
-#define	BPLONG(p, v)		(BPSHORT(p, (v)), BPSHORT(p+2, (v)>>16))
-
-/*
- * Compressed image file parameters and helper routines
- */
-#define	NMATCH	3		/* shortest match possible */
-#define	NRUN	(NMATCH+31)	/* longest match possible */
-#define	NMEM	1024		/* window size */
-#define	NDUMP	128		/* maximum length of dump */
-#define	NCBLOCK	6000		/* size of compressed blocks */
-extern	void	_twiddlecompressed(uchar*, int);
-extern	int	_compblocksize(Rectangle, int);
-
-/* XXX backwards helps; should go */
-extern	u32int	drawld2chan[];
-extern	void		drawsetdebug(int);
-
-/*
  * Snarf buffer
  */
 enum
 {
 	SnarfSize = 64*1024
 };
-char *getsnarf(void);
-void putsnarf(char*);
+extern char*	getsnarf(void);
+extern void	putsnarf(char*);
 
-void drawtopwindow(void);
-void drawresizewindow(Rectangle);
-extern char *winsize;
+/*
+ * Set up by initdraw()
+ */
+extern Display	*display;
+extern Font	*font;
+extern Image	*screen;
+extern Screen	*_screen;
+extern int	drawmousemask;	/* set bits to disable receiving those buttons */
+extern char	*winsize;
+extern int	_cursorfd;
+extern int	_drawdebug;	/* set to 1 to see errors from flushimage */
 
-int	mousescrollsize(int);
+extern void	_setdrawop(Display*, Drawop);
+extern Display* _initdisplay(void(*)(Display*,char*), char*);
+extern void	needdisplay(void);	/* call instead of initdraw to get (null) variable linked in */
+extern void	drawsetdebug(int);	/* toggle debugging output */
+
+#define BGSHORT(p)	(((p)[0]<<0) | ((p)[1]<<8))
+#define BGLONG(p)	((BGSHORT(p)<<0) | (BGSHORT(p+2)<<16))
+#define BPSHORT(p, v)	((p)[0]=(v), (p)[1]=((v)>>8))
+#define BPLONG(p, v)	(BPSHORT(p, (v)), BPSHORT(p+2, (v)>>16))
+
+/*
+ * Compressed image file parameters and helper routines
+ */
+enum
+{
+	NMATCH	= 3,		/* shortest match possible */
+	NRUN	= NMATCH+31,	/* longest match possible */
+	NMEM	= 1024,		/* window size */
+	NDUMP	= 128,		/* maximum length of dump */
+	NCBLOCK	= 6000		/* size of compressed blocks */
+};
+extern void	_twiddlecompressed(uchar*, int);
+extern int	_compblocksize(Rectangle, int);
 
 /*
  * RPC interface to draw server.
  */
-struct Mouse;
 struct Cursor;
 struct Cursor2;
-int		_displaybouncemouse(Display *d, struct Mouse *m);
-int		_displayconnect(Display *d);
-int		_displaycursor(Display *d, struct Cursor *c, struct Cursor2 *c2);
-int		_displayinit(Display *d, char *label, char *winsize);
-int		_displaylabel(Display *d, char *label);
-int		_displaymoveto(Display *d, Point p);
-int		_displaymux(Display *d);
-int		_displayrddraw(Display *d, void *v, int n);
-int		_displayrdkbd(Display *d, Rune *r);
-int		_displayrdmouse(Display *d, struct Mouse *m, int *resized);
-char*		_displayrdsnarf(Display *d);
-int		_displaywrdraw(Display *d, void *v, int n);
-int		_displaywrsnarf(Display *d, char *snarf);
-int		_displaytop(Display *d);
-int		_displayresize(Display *d, Rectangle rect);
+struct Mouse;
+extern int	_displaybouncemouse(Display *d, struct Mouse *m);
+extern int	_displayconnect(Display *d);
+extern int	_displaycursor(Display *d, struct Cursor *c, struct Cursor2 *c2);
+extern int	_displayinit(Display *d, char *label, char *winsize);
+extern int	_displaylabel(Display *d, char *label);
+extern int	_displaymoveto(Display *d, Point p);
+extern int	_displaymux(Display *d);
+extern int	_displayrddraw(Display *d, void *v, int n);
+extern int	_displayrdkbd(Display *d, Rune *r);
+extern int	_displayrdmouse(Display *d, struct Mouse *m, int *resized);
+extern char*	_displayrdsnarf(Display *d);
+extern int	_displaywrdraw(Display *d, void *v, int n);
+extern int	_displaywrsnarf(Display *d, char *snarf);
+extern int	_displaytop(Display *d);
+extern int	_displayresize(Display *d, Rectangle rect);
 
 #if defined(__cplusplus)
 }
