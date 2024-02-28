@@ -16,11 +16,11 @@
 #include "term.h"
 
 void	derror(Display*, char*);
-void	mousethread(void*);
-void	keyboardthread(void*);
-void	rcoutputproc(void*);
-void	rcinputproc(void*);
 void	hangupnote(void*, char*);
+void	keyboardthread(void*);
+void	mousethread(void*);
+void	rcinputproc(void*);
+void	rcoutputproc(void*);
 void	resizethread(void*);
 void	servedevtext(void);
 
@@ -32,7 +32,7 @@ int		plumbfd;
 int		rcpid;
 int		rcfd;
 int		sfd;
-Window		*w;
+Window		*w0;
 char		*fontname;
 
 int	errorshouldabort = 0;
@@ -54,7 +54,9 @@ threadmaybackground(void)
 void
 threadmain(int argc, char *argv[])
 {
+	enum { Maxtabstop = 4096 };
 	char *p;
+	ulong ul;
 
 	rfork(RFNOTEG);
 	font = nil;
@@ -85,43 +87,50 @@ threadmain(int argc, char *argv[])
 		break;
 	}ARGEND
 
-	if(fontname)
+	if(fontname!=nil && *fontname!='\0')
 		putenv("font", fontname);
 
 	p = getenv("tabstop");
-	if(p == 0)
+	if(p == nil)
 		p = getenv("TABSTOP");
-	if(p && maxtab <= 0)
-		maxtab = strtoul(p, 0, 0);
+	if(p != nil){
+		ul = strtoul(p, nil, 10);
+		if(ul!=0 && ul!=-1){
+			if(ul <= Maxtabstop)
+				maxtab = ul;
+			else
+				maxtab = Maxtabstop;
+		}
+		free(p);
+	}
 	if(maxtab <= 0)
 		maxtab = 4;
-	free(p);
 
 	if(initdraw(derror, fontname, "9term") < 0)
-		sysfatal("initdraw: %r");
+		error("can't open display");
 
 	notify(hangupnote);
 	noteenable("sys: child");
 
 	mousectl = initmouse(nil, screen);
 	if(mousectl == nil)
-		error("cannot find mouse");
+		error("can't find mouse");
+	mouse = &mousectl->m;
 	keyboardctl = initkeyboard(nil);
 	if(keyboardctl == nil)
-		error("cannot find keyboard");
-	mouse = &mousectl->m;
+		error("can't find keyboard");
 
 	timerinit();
 	servedevtext();
 	rcpid = rcstart(argc, argv, &rcfd, &sfd);
-	w = new(screen, FALSE, scrolling, rcpid, ".");
+	w0 = new(screen, FALSE, scrolling, rcpid, ".");
 
-	threadcreate(keyboardthread, nil, STACK);
-	threadcreate(mousethread, nil, STACK);
-	threadcreate(resizethread, nil, STACK);
+	threadcreate(resizethread, w0, STACK);
+	threadcreate(mousethread, w0, STACK);
+	threadcreate(keyboardthread, w0, STACK);
 
-	proccreate(rcoutputproc, nil, STACK);
-	proccreate(rcinputproc, nil, STACK);
+	proccreate(rcoutputproc, w0, STACK);
+	proccreate(rcinputproc, w0, STACK);
 }
 
 void
@@ -132,23 +141,25 @@ derror(Display *d, char *errorstr)
 }
 
 void
-hangupnote(void *a, char *msg)
+hangupnote(void *arg, char *msg)
 {
+	char buf[128];
+	int n;
+
+	USED(arg);
+
 	if(getpid() != mainpid)
 		noted(NDFLT);
 	if(strcmp(msg, "hangup") == 0){
 		postnote(PNPROC, rcpid, "hangup");
 		noted(NDFLT);
 	}
-	if(strstr(msg, "child")){
-		char buf[128];
-		int n;
-
+	if(strstr(msg, "child") != nil){
 		n = awaitnohang(buf, sizeof buf-1);
 		if(n > 0){
 			buf[n] = 0;
 			if(atoi(buf) == rcpid)
-				threadexitsall(0);
+				threadexitsall(nil);
 		}
 		noted(NCONT);
 	}
@@ -156,31 +167,12 @@ hangupnote(void *a, char *msg)
 }
 
 void
-keyboardthread(void *arg)
-{
-	Rune buf[2][21], *rp;
-	int i, n;
-
-	USED(arg);
-	threadsetname("keyboardthread");
-
-	for(n=0; ; n=1-n){
-		rp = buf[n];
-		recv(keyboardctl->c, &rp[0]);
-		for(i=1; i<nelem(buf[n])-1; i++)
-			if(nbrecv(keyboardctl->c, &rp[i]) <= 0)
-				break;
-		rp[i] = L'\0';
-		sendp(w->ck, rp);
-	}
-}
-
-void
 resizethread(void *arg)
 {
+	Window *w;
 	Point cs, fs;
 
-	USED(arg);
+	w = arg;
 	threadsetname("resizethread");
 
 	for(;;){
@@ -196,33 +188,54 @@ resizethread(void *arg)
 		if(recv(mousectl->resizec, nil) != 1)
 			break;
 		if(getwindow(display, Refnone) < 0)
-			sysfatal("can't reattach to window");
+			error("can't reattach to window");
 	}
 }
 
 void
 mousethread(void *arg)
 {
-	int b;
-	Mouse mcopy;
+	Window *w;
+	Mouse m;
 
-	USED(arg);
+	w = arg;
 	threadsetname("mousethread");
 
 	while(readmouse(mousectl) >= 0){
 		if((mouse->buttons&(Mbutton1|Mscrollsmask))
 		|| ptinrect(mouse->xy, w->scrollr))
 			do{
-				b = mouse->buttons;
-				if(b != 0)
+				m = *mouse;
+				if(m.buttons != 0)
 					wsetcursor(w, FALSE);
-				mcopy = mousectl->m;
-				send(w->mc.c, &mcopy);	/* send to window */
-			}while(b!=0 && readmouse(mousectl)>=0);
+				send(w->mc.c, &m);	/* send to window */
+			}while(m.buttons!=0 && readmouse(mousectl)>=0);
 		else if(mouse->buttons & Mbutton2)
 			button2menu(w);
 		else
 			bouncemouse(mouse);
+	}
+}
+
+void
+keyboardthread(void *arg)
+{
+	enum { Nbuf = 20 };
+	Window *w;
+	Rune buf[2][Nbuf+1], *rp;
+	int b, i;
+
+	w = arg;
+	threadsetname("keyboardthread");
+
+	for(b=0; ; b=1-b){
+		rp = buf[b];
+		recv(keyboardctl->c, &rp[0]);
+		for(i=1; i<Nbuf; i++)
+			if(nbrecv(keyboardctl->c, &rp[i]) <= 0)
+				break;
+		rp[i] = '\0';
+		sendp(w->ck, rp);
 	}
 }
 
@@ -234,7 +247,7 @@ wborder(Window *w, int type)
 Window*
 wpointto(Point pt)
 {
-	return w;
+	return w0;
 }
 
 Window*
@@ -380,22 +393,24 @@ rawon(void)
  * I/O with child rc.
  */
 
-int label(Rune*, int);
+static int	label(Window*, Rune*, int);
 
 void
 rcoutputproc(void *arg)
 {
-	int i, cnt, n, nb, nr;
 	static char data[9000];
+	Window *w;
+	int cnt, n, nb, nr;
 	Conswritemesg cwm;
 	Rune *r;
 	Stringpair pair;
 
-	i = 0;
+	w = arg;
+	threadsetname("rcoutputproc");
+
 	cnt = 0;
 	for(;;){
 		/* XXX Let typing have a go -- maybe there's a rubout waiting. */
-		i = 1-i;
 		n = read(rcfd, data+cnt, sizeof data-cnt);
 		if(n <= 0){
 			if(n < 0)
@@ -411,14 +426,14 @@ rcoutputproc(void *arg)
 		/* approach end of buffer */
 		while(fullrune(data+nb, cnt-nb)){
 			nb += chartorune(&r[nr], data+nb);
-			if(r[nr])
+			if(r[nr] != '\0')
 				nr++;
 		}
 		if(nb < cnt)
 			memmove(data, data+nb, cnt-nb);
 		cnt -= nb;
 
-		nr = label(r, nr);
+		nr = label(w, r, nr);
 		if(nr == 0)
 			continue;
 
@@ -454,59 +469,54 @@ intrc(void)
  * where xxx is the new directory.  This format was chosen
  * because it changes the label on xterm windows.
  */
-int
-label(Rune *sr, int n)
+static int
+label(Window *w, Rune *r, int nr)
 {
-	Rune *sl, *el, *er, *r;
-	char *p, *dir;
+	static Rune Lhold[] = { '*', '9', 't', 'e', 'r', 'm', '-', 'h', 'o', 'l', 'd', '+', 0 };
+	int sl, el;
+	char *dir, *p;
 
-	er = sr+n;
-	for(r=er-1; r>=sr; r--)
-		if(*r == '\007')
-			break;
-	if(r < sr)
-		return n;
+	el = nr-1;
+	while(el>=0 && r[el]!='\007')
+		el--;
+	sl = el;
+	while(sl>=3 && !(r[sl-3]=='\033' && r[sl-2]==']' && r[sl-1]==';'))
+		sl--;
+	if(sl < 3)
+		return nr;
 
-	el = r+1;
-	for(sl=el-3; sl>=sr; sl--)
-		if(sl[0]=='\033' && sl[1]==']' && sl[2]==';')
-			break;
-	if(sl < sr)
-		return n;
-
-	dir = smprint("%.*S", (el-1)-(sl+3), sl+3);
-	if(dir){
-		if(strcmp(dir, "*9term-hold+") == 0) {
-			w->holding = 1;
-			wrepaint(w);
-			flushimage(display, 1);
-		} else {
-			drawsetlabel(dir);
-			free(w->dir);
-			w->dir = dir;
+	if(el-sl==nelem(Lhold)-1 && runestrncmp(r+sl, Lhold, el-sl)==0){
+		w->holding = TRUE;
+		wrepaint(w);
+		flushimage(display, 1);
+	}else if((dir = smprint("%.*S", el-sl, r+sl)) != nil){
+		drawsetlabel(dir);
+		/* remove trailing /-sysname if present */
+		p = strrchr(dir, '/');
+		if(p!=nil && p[1]=='-'){
+			if(p == dir)
+				p++;
+			*p = '\0';
 		}
+		free(w->dir);
+		w->dir = dir;
 	}
 
-	/* remove trailing /-sysname if present */
-	p = strrchr(dir, '/');
-	if(p && *(p+1) == '-'){
-		if(p == dir)
-			p++;
-		*p = 0;
-	}
-
-	runemove(sl, el, er-el);
-	n -= (el-sl);
-	return n;
+	runemove(r+sl-3, r+el+1, nr-el-1);
+	return nr-(el+1-(sl-3));
 }
 
 void
 rcinputproc(void *arg)
 {
 	static char data[9000];
+	Window *w;
 	Consreadmesg crm;
 	Channel *c1, *c2;
 	Stringpair pair;
+
+	w = arg;
+	threadsetname("rcinputproc");
 
 	for(;;){
 		recv(w->consread, &crm);
@@ -534,10 +544,10 @@ rioputsnarf(void)
 	char *s;
 
 	s = smprint("%.*S", nsnarf, snarf);
-	if(s){
-		putsnarf(s);
-		free(s);
-	}
+	if(s == nil)
+		return;
+	putsnarf(s);
+	free(s);
 }
 
 void
@@ -571,9 +581,10 @@ void textproc(void*);
 void
 removethesocket(void)
 {
-	if(thesocket[0])
-		if(remove(thesocket) < 0)
-			fprint(2, "remove %s: %r\n", thesocket);
+	if(thesocket[0] == '\0')
+		return;
+	if(remove(thesocket) < 0)
+		fprint(2, "remove %s: %r\n", thesocket);
 }
 
 void
@@ -600,8 +611,9 @@ listenproc(void *arg)
 	int fd;
 	char dir[100];
 
-	threadsetname("listen %s", thesocket);
 	USED(arg);
+	threadsetname("listen %s", thesocket);
+
 	for(;;){
 		fd = listen(adir, dir);
 		if(fd < 0){
@@ -616,36 +628,34 @@ void
 textproc(void *arg)
 {
 	int fd, i, x, n, end;
-	Rune r;
 	char buf[4096], *p, *ep;
+	Rune r;
 
-	threadsetname("textproc");
 	fd = (uintptr)arg;
+	threadsetname("textproc");
+
 	p = buf;
 	ep = buf+sizeof buf;
-	if(w == nil){
-		close(fd);
-		return;
-	}
-	end = w->org+w->nr;	/* avoid possible output loop */
-	for(i=w->org;; i++){
-		if(i >= end || ep-p < UTFmax){
+	if(w0 == nil)
+		goto Return;
+	end = w0->org+w0->nr;	/* avoid possible output loop */
+	for(i=w0->org; ; i++){
+		if(i>=end || ep-p<UTFmax){
 			for(x=0; x<p-buf; x+=n)
-				if((n = write(fd, buf+x, (p-x)-buf)) <= 0)
-					goto break2;
-
+				if((n = write(fd, buf+x, p-buf-x)) <= 0)
+					goto Return;
 			if(i >= end)
-				break;
+				goto Return;
 			p = buf;
 		}
-		if(i < w->org)
-			i = w->org;
-		r = w->r[i-w->org];
+		if(i < w0->org)
+			i = w0->org;
+		r = w0->r[i-w0->org];
 		if(r < Runeself)
 			*p++ = r;
 		else
 			p += runetochar(p, &r);
 	}
-break2:
+Return:
 	close(fd);
 }

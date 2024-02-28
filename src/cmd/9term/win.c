@@ -101,33 +101,36 @@ fsfidprint(CFid *fid, char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: win cmd args...\n");
+	fprint(2, "usage: win [cmd ...]\n");
 	threadexitsall("usage");
 }
 
 void
-waitthread(void *v)
+waitthread(void *arg)
 {
+	USED(arg);
 	recvp(cwait);
 	threadexitsall(nil);
 }
 
 void
-hangupnote(void *a, char *msg)
+hangupnote(void *arg, char *msg)
 {
-	if(strcmp(msg, "hangup") == 0 && pid != 0){
+	char buf[128];
+	int n;
+
+	USED(arg);
+
+	if(strcmp(msg, "hangup")==0 && pid!=0){
 		postnote(PNGROUP, pid, "hangup");
 		noted(NDFLT);
 	}
-	if(strstr(msg, "child")){
-		char buf[128];
-		int n;
-
+	if(strstr(msg, "child") != nil){
 		n = awaitnohang(buf, sizeof buf-1);
 		if(n > 0){
 			buf[n] = 0;
 			if(atoi(buf) == pid)
-				threadexitsall(0);
+				threadexitsall(nil);
 		}
 		noted(NCONT);
 	}
@@ -183,7 +186,7 @@ threadmain(int argc, char **argv)
 	if((fs = nsmount("acme", "")) == 0)
 		sysfatal("nsmount acme: %r");
 	ctlfd = fsopen(fs, "new/ctl", ORDWR|OCEXEC);
-	if(ctlfd == 0 || fsread(ctlfd, buf, 12) != 12)
+	if(ctlfd==0 || fsread(ctlfd, buf, 12)!=12)
 		sysfatal("ctl: %r");
 	id = atoi(buf);
 	snprint(buf, sizeof buf, "%d", id);

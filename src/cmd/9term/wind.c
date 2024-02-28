@@ -196,7 +196,6 @@ wclose(Window *w)
 	return 1;
 }
 
-
 void
 winctl(void *arg)
 {
@@ -214,11 +213,9 @@ winctl(void *arg)
 	Consreadmesg cwrm;
 	Stringpair pair;
 	Wctlmesg wcm;
-	char buf[4*12+1];
 
 	w = arg;
-	snprint(buf, sizeof buf, "winctl-id%d", w->id);
-	threadsetname(buf);
+	threadsetname("winctl-id%d", w->id);
 
 	mrm.cm = chancreate(sizeof(Mouse), 0);
 	cwm.cw = chancreate(sizeof(Stringpair), 0);
@@ -226,7 +223,6 @@ winctl(void *arg)
 	crm.c2 = chancreate(sizeof(Stringpair), 0);
 	cwrm.c1 = chancreate(sizeof(Stringpair), 0);
 	cwrm.c2 = chancreate(sizeof(Stringpair), 0);
-
 
 	alts[WKey].c = w->ck;
 	alts[WKey].v = &kbdr;
@@ -284,7 +280,7 @@ winctl(void *arg)
 		}
 		switch(alt(alts)){
 		case WKey:
-			for(i=0; kbdr[i]!=L'\0'; i++)
+			for(i=0; kbdr[i]!='\0'; i++)
 				wkeyctl(w, kbdr[i]);
 
 			/* As soon as typing starts, cancel any inertial scrolling in progress. */
@@ -396,7 +392,7 @@ winctl(void *arg)
 			nb = pair.ns;
 			i = npart;
 			npart = 0;
-			if(i)
+			if(i > 0)
 				memmove(t, part, i);
 			while(i<nb && (w->qh<w->nr || w->nraw>0)){
 				if(w->qh == w->nr){
@@ -663,18 +659,15 @@ wkeyctl(Window *w, Rune r)
 			return;
 		}
 	/*
-	 * This if used to be below the if(w->rawing ...),
-	 * but let's try putting it here.  This will allow ESC-processing
-	 * to toggle hold mode even in remote SSH connections.
-	 * The drawback is that vi-style processing gets harder.
-	 * If you find yourself in some weird readline mode, good
-	 * luck getting out without ESC.  Let's see who complains.
+	 * This is used to be below the if(w->rawing ...), but let's try
+	 * putting it here. This will allow ESC-processing to toggle the
+	 * hold mode even in remote SSH connections. The drawback is that
+	 * vi-style processing gets harder. If you find yourself in some
+	 * weird readline mode, good luck getting out without ESC. Let's
+	 * see who complains.
 	 */
 	if(r==Kesc || (w->holding && r==Kdel)){	/* toggle hold */
-		if(w->holding)
-			--w->holding;
-		else
-			w->holding++;
+		w->holding = !w->holding;
 		wrepaint(w);
 		if(r == Kesc)
 			return;
