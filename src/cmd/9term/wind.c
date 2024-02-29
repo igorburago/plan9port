@@ -1588,56 +1588,67 @@ wsetorigin(Window *w, uint org)
 		frdrawsel(&w->f, frptofchar(&w->f, w->f.p1-1), w->f.p1-1, w->f.p1, 1);
 }
 
+static uint
+wfrcharofpos(Window *w, uint q)
+{
+	if(q <= w->org)
+		return 0;
+	q -= w->org;
+	if(q <= w->f.nchars)
+		return q;
+	return w->f.nchars;
+}
+
+static void
+swappos(uint *p0, uint *p1)
+{
+	uint p;
+
+	p = *p0;
+	*p0 = *p1;
+	*p1 = p;
+}
+
+static void
+frdraworientedsel(Frame *f, uint p0, uint p1, int issel)
+{
+	if(p0 > p1){
+		swappos(&p0, &p1);
+		issel = !issel;
+	}
+	frdrawsel(f, frptofchar(f, p0), p0, p1, issel);
+}
+
 void
 wsetselect(Window *w, uint q0, uint q1)
 {
-	int p0, p1, shouldtick;
+	uint old0, old1, new0, new1, p0, p1;
 
-	/* w->f.p0 and w->f.p1 are always right; w->q0 and w->q1 may be off */
-	w->q0 = q0;
-	w->q1 = q1;
-	/* compute desired p0,p1 from q0,q1 */
-	p0 = q0-w->org;
-	p1 = q1-w->org;
-	shouldtick = (p0==p1 && 0<=p0 && p0<=w->f.nchars);
-	if(p0 < 0)
-		p0 = 0;
-	if(p1 < 0)
-		p1 = 0;
-	if(p0 > w->f.nchars)
-		p0 = w->f.nchars;
-	if(p1 > w->f.nchars)
-		p1 = w->f.nchars;
-	if(p0==w->f.p0 && p1==w->f.p1){
-		if(p0==p1 && shouldtick!=w->f.ticked)
-			frtick(&w->f, frptofchar(&w->f, p0), shouldtick);
-		return;
-	}
-	/* screen disagrees with desired selection */
-	if(w->f.p1<=p0 || p1<=w->f.p0 || p0==p1 || w->f.p1==w->f.p0){
-		/* no overlap or too easy to bother trying */
-		frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, w->f.p1, 0);
-		if(p0!=p1 || shouldtick)
-			frdrawsel(&w->f, frptofchar(&w->f, p0), p0, p1, 1);
-	}else{
-		/* overlap; avoid unnecessary painting */
-		if(p0 < w->f.p0){
-			/* extend selection backwards */
-			frdrawsel(&w->f, frptofchar(&w->f, p0), p0, w->f.p0, 1);
-		}else if(p0 > w->f.p0){
-			/* trim first part of selection */
-			frdrawsel(&w->f, frptofchar(&w->f, w->f.p0), w->f.p0, p0, 0);
-		}
-		if(p1 > w->f.p1){
-			/* extend selection forwards */
-			frdrawsel(&w->f, frptofchar(&w->f, w->f.p1), w->f.p1, p1, 1);
-		}else if(p1 < w->f.p1){
-			/* trim last part of selection */
-			frdrawsel(&w->f, frptofchar(&w->f, p1), p1, w->f.p1, 0);
-		}
-	}
+	/* w->f.p0 and w->f.p1 are always right; w->q0 and w->q1 may be off. */
+	old0 = w->f.p0;
+	old1 = w->f.p1;
+	new0 = p0 = wfrcharofpos(w, q0);
+	new1 = p1 = wfrcharofpos(w, q1);
+	if(w->f.ticked)
+		frtick(&w->f, frptofchar(&w->f, w->f.p0), FALSE);
+
+	/* Find the symmetric difference of the two ranges, in place. */
+	if(old0<=new0 && new0<old1)
+		swappos(&new0, &old1);
+	else if(new0<=old0 && old0<new1)
+		swappos(&old0, &new1);
+	/* Draw the difference; if a range is inverted, so is its selection status. */
+	if(old0 != old1)
+		frdraworientedsel(&w->f, old0, old1, FALSE);
+	if(new0 != new1)
+		frdraworientedsel(&w->f, new0, new1, TRUE);
+
+	if(q0==q1 && q0==w->org+p0)	/* the new dot is empty and visible */
+		frtick(&w->f, frptofchar(&w->f, p0), TRUE);
 	w->f.p0 = p0;
 	w->f.p1 = p1;
+	w->q0 = q0;
+	w->q1 = q1;
 }
 
 uint
