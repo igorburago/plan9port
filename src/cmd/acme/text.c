@@ -1077,6 +1077,69 @@ textshow(Text *t, uint q0, uint q1, int doselect)
 	}
 }
 
+static uint
+textfrcharofpos(Text *t, uint q)
+{
+	if(q <= t->org)
+		return 0;
+	q -= t->org;
+	if(q <= t->fr.nchars)
+		return q;
+	return t->fr.nchars;
+}
+
+static void
+swappos(uint *p0, uint *p1)
+{
+	uint p;
+
+	p = *p0;
+	*p0 = *p1;
+	*p1 = p;
+}
+
+static void
+frdraworientedsel(Frame *f, uint p0, uint p1, int issel)
+{
+	if(p0 > p1){
+		swappos(&p0, &p1);
+		issel = !issel;
+	}
+	frdrawsel(f, frptofchar(f, p0), p0, p1, issel);
+}
+
+void
+textsetselect(Text *t, uint q0, uint q1)
+{
+	uint old0, old1, new0, new1, p0, p1;
+
+	/* t->fr.p0 and t->fr.p1 are always right; t->q0 and t->q1 may be off. */
+	old0 = t->fr.p0;
+	old1 = t->fr.p1;
+	new0 = p0 = textfrcharofpos(t, q0);
+	new1 = p1 = textfrcharofpos(t, q1);
+	if(t->fr.ticked)
+		frtick(&t->fr, frptofchar(&t->fr, t->fr.p0), FALSE);
+
+	/* Find the symmetric difference of the two ranges, in place. */
+	if(old0<=new0 && new0<old1)
+		swappos(&new0, &old1);
+	else if(new0<=old0 && old0<new1)
+		swappos(&old0, &new1);
+	/* Draw the difference; if a range is inverted, so is its selection status. */
+	if(old0 != old1)
+		frdraworientedsel(&t->fr, old0, old1, FALSE);
+	if(new0 != new1)
+		frdraworientedsel(&t->fr, new0, new1, TRUE);
+
+	if(q0==q1 && q0==t->org+p0)	/* the new dot is empty and visible */
+		frtick(&t->fr, frptofchar(&t->fr, p0), TRUE);
+	t->fr.p0 = p0;
+	t->fr.p1 = p1;
+	t->q0 = q0;
+	t->q1 = q1;
+}
+
 static int
 region(int a, int b)
 {
@@ -1116,61 +1179,6 @@ selrestore(Frame *f, Point pt0, uint p0, uint p1)
 	}
 	/* inside selection */
 	frdrawsel0(f, pt0, p0, p1, f->cols[HIGH], f->cols[HTEXT]);
-}
-
-void
-textsetselect(Text *t, uint q0, uint q1)
-{
-	int p0, p1, shouldtick;
-
-	/* t->fr.p0 and t->fr.p1 are always right; t->q0 and t->q1 may be off */
-	t->q0 = q0;
-	t->q1 = q1;
-	/* compute desired p0,p1 from q0,q1 */
-	p0 = q0-t->org;
-	p1 = q1-t->org;
-	shouldtick = (p0==p1 && 0<=p0 && p0<=t->fr.nchars);
-	if(p0 < 0)
-		p0 = 0;
-	if(p1 < 0)
-		p1 = 0;
-	if(p0 > t->fr.nchars)
-		p0 = t->fr.nchars;
-	if(p1 > t->fr.nchars)
-		p1 = t->fr.nchars;
-	if(p0==t->fr.p0 && p1==t->fr.p1){
-		if(p0==p1 && shouldtick!=t->fr.ticked)
-			frtick(&t->fr, frptofchar(&t->fr, p0), shouldtick);
-		return;
-	}
-	if(p0 > p1)
-		sysfatal("textsetselect p0=%d > p1=%d (q0=%ud q1=%ud org=%ud nchars=%ud)",
-			p0, p1, q0, q1, t->org, (uint)t->fr.nchars);
-	/* screen disagrees with desired selection */
-	if(t->fr.p1<=p0 || p1<=t->fr.p0 || p0==p1 || t->fr.p1==t->fr.p0){
-		/* no overlap or too easy to bother trying */
-		frdrawsel(&t->fr, frptofchar(&t->fr, t->fr.p0), t->fr.p0, t->fr.p1, 0);
-		if(p0!=p1 || shouldtick)
-			frdrawsel(&t->fr, frptofchar(&t->fr, p0), p0, p1, 1);
-	}else{
-		/* overlap; avoid unnecessary painting */
-		if(p0 < t->fr.p0){
-			/* extend selection backwards */
-			frdrawsel(&t->fr, frptofchar(&t->fr, p0), p0, t->fr.p0, 1);
-		}else if(p0 > t->fr.p0){
-			/* trim first part of selection */
-			frdrawsel(&t->fr, frptofchar(&t->fr, t->fr.p0), t->fr.p0, p0, 0);
-		}
-		if(p1 > t->fr.p1){
-			/* extend selection forwards */
-			frdrawsel(&t->fr, frptofchar(&t->fr, t->fr.p1), t->fr.p1, p1, 1);
-		}else if(p1 < t->fr.p1){
-			/* trim last part of selection */
-			frdrawsel(&t->fr, frptofchar(&t->fr, p1), p1, t->fr.p1, 0);
-		}
-	}
-	t->fr.p0 = p0;
-	t->fr.p1 = p1;
 }
 
 /*
