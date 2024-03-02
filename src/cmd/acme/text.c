@@ -365,7 +365,7 @@ textbsinsert(Text *t, uint q0, Rune *r, uint n, int tofile, int *nrp)
 void
 textinsert(Text *t, uint q0, Rune *r, uint n, int tofile)
 {
-	int c, i;
+	int i, ec;
 	Text *u;
 
 	if(tofile && t->ncache != 0)
@@ -399,14 +399,14 @@ textinsert(Text *t, uint q0, Rune *r, uint n, int tofile)
 		t->org += n;
 	else if(q0 <= t->org+t->fr.nchars)
 		frinsert(&t->fr, r, r+n, q0-t->org);
-	if(t->w){
-		c = 'i';
+	if(t->w != nil){
+		ec = 'i';
 		if(t->what == Body)
-			c = 'I';
+			ec = 'I';
 		if(n <= EVENTSIZE)
-			winevent(t->w, "%c%d %d 0 %d %.*S\n", c, q0, q0+n, n, n, r);
+			winevent(t->w, "%c%ud %ud 0 %ud %.*S\n", ec, q0, q0+n, n, (int)n, r);
 		else
-			winevent(t->w, "%c%d %d 0 0 \n", c, q0, q0+n, n);
+			winevent(t->w, "%c%ud %ud 0 0 \n", ec, q0, q0+n);
 	}
 }
 
@@ -450,7 +450,7 @@ void
 textdelete(Text *t, uint q0, uint q1, int tofile)
 {
 	uint n, p0, p1;
-	int i, c;
+	int i, ec;
 	Text *u;
 
 	if(tofile && t->ncache != 0)
@@ -496,10 +496,10 @@ textdelete(Text *t, uint q0, uint q1, int tofile)
 		textfill(t);
 	}
 	if(t->w){
-		c = 'd';
+		ec = 'd';
 		if(t->what == Body)
-			c = 'D';
-		winevent(t->w, "%c%d %d 0 0 \n", c, q0, q1);
+			ec = 'D';
+		winevent(t->w, "%c%ud %ud 0 0 \n", ec, q0, q1);
 	}
 }
 
