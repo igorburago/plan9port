@@ -813,29 +813,41 @@ winctlprint(Window *w, char *buf, int fonts)
 void
 winevent(Window *w, char *fmt, ...)
 {
+	va_list args;
+	Fmt f;
 	int n;
 	char *b;
 	Xfid *x;
-	va_list arg;
 
 	if(w->nopen[QWevent] == 0)
 		return;
 	if(w->owner == 0)
-		error("no window owner");
-	va_start(arg, fmt);
-	b = vsmprint(fmt, arg);
-	va_end(arg);
-	if(b == nil)
-		error("vsmprint failed");
-	n = strlen(b);
+		error("winevent: no window owner");
+
+	if(fmtstrinit(&f) < 0)
+		goto Fmterror;
+	va_start(args, fmt);
+	n = fmtvprint(&f, fmt, args);
+	va_end(args);
+	if(n < 0)
+		goto Fmterror;
+	n = f.nfmt;
+	b = fmtstrflush(&f);
+	if(b == nil){
+	Fmterror:
+		error("winevent: string formatting failed");
+		return;
+	}
+
 	w->events = erealloc(w->events, w->nevents+1+n);
 	w->events[w->nevents++] = w->owner;
 	memmove(w->events+w->nevents, b, n);
 	free(b);
 	w->nevents += n;
 	x = w->eventx;
-	if(x){
+	if(x != nil){
 		w->eventx = nil;
 		sendp(x->c, nil);
 	}
+	return;
 }
