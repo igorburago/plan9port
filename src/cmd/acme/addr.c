@@ -174,11 +174,10 @@ regexp(uint showerr, Text *t, Range lim, Range r, Rune *pat, int dir, int *found
 Range
 address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, int (*getc)(void*, uint),  int *evalp, uint *qp)
 {
-	int dir, size, npat;
-	int prevc, c, nc, n;
-	uint q;
-	Rune *pat;
 	Range r, nr;
+	uint q, n, npat;
+	int dir, size;
+	Rune c, prevc, nc, delim, *pat;
 
 	r = ar;
 	q = q0;
@@ -256,10 +255,13 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 			dir = Back;
 			/* fall through */
 		case '/':
+			delim = c;
 			npat = 0;
 			pat = nil;
 			while(q<q1){
 				c = (*getc)(a, q++);
+				if(c == delim)
+					goto out;
 				switch(c){
 				case '\n':
 					--q;
@@ -271,8 +273,6 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 						goto out;
 					c = (*getc)(a, q++);
 					break;
-				case '/':
-					goto out;
 				}
 				pat = runerealloc(pat, npat+1);
 				pat[npat++] = c;
