@@ -1141,69 +1141,62 @@ textsetselect(Text *t, uint q0, uint q1)
 }
 
 static int
-region(int a, int b)
+region(uint p0, uint p1)
 {
-	if(a < b)
-		return -1;
-	if(a == b)
-		return 0;
-	return 1;
+	return (p0 > p1) - (p0 < p1);
 }
 
-void
-selrestore(Frame *f, Point pt0, uint p0, uint p1)
+static uint
+clamppos(uint p, uint p0, uint p1)
 {
-	if(p1<=f->p0 || p0>=f->p1){
-		/* no overlap */
-		frdrawsel0(f, pt0, p0, p1, f->cols[BACK], f->cols[TEXT]);
-		return;
-	}
-	if(p0>=f->p0 && p1<=f->p1){
-		/* entirely inside */
-		frdrawsel0(f, pt0, p0, p1, f->cols[HIGH], f->cols[HTEXT]);
-		return;
-	}
-
-	/* they now are known to overlap */
-
-	/* before selection */
-	if(p0 < f->p0){
-		frdrawsel0(f, pt0, p0, f->p0, f->cols[BACK], f->cols[TEXT]);
-		p0 = f->p0;
-		pt0 = frptofchar(f, p0);
-	}
-	/* after selection */
-	if(p1 > f->p1){
-		frdrawsel0(f, frptofchar(f, f->p1), f->p1, p1, f->cols[BACK], f->cols[TEXT]);
-		p1 = f->p1;
-	}
-	/* inside selection */
-	frdrawsel0(f, pt0, p0, p1, f->cols[HIGH], f->cols[HTEXT]);
+	if(p > p1)
+		p = p1;
+	if(p < p0)
+		p = p0;
+	return p;
 }
 
-/*
- * Release the button in less than DELAY ms and it's considered a null selection
- * if the mouse hardly moved, regardless of whether it crossed a char boundary.
- */
-enum {
-	DELAY = 2,
-	MINMOVE = 4
-};
+static void
+frredrawrange(Frame *f, Point pt0, uint p0, uint p1)
+{
+	uint s0, s1;
+
+	/* Clip the selection range to the drawing one. */
+	s0 = clamppos(f->p0, p0, p1);
+	s1 = clamppos(f->p1, p0, p1);
+	if(p0 < s0)
+		frdrawsel0(f, pt0,
+			p0, s0, f->cols[BACK], f->cols[TEXT]);
+	if(s0 < s1)
+		frdrawsel0(f, s0==p0 ? pt0 : frptofchar(f, s0),
+			s0, s1, f->cols[HIGH], f->cols[HTEXT]);
+	if(s1 < p1)
+		frdrawsel0(f, s1==p0 ? pt0 : frptofchar(f, s1),
+			s1, p1, f->cols[BACK], f->cols[TEXT]);
+}
 
 uint
-xselect(Frame *f, Mousectl *mc, Image *col, uint *p1p)	/* when called, button is down */
+xselect(Frame *f, Mousectl *mc, Image *col, uint *p1p)
 {
-	uint p0, p1, q, tmp;
-	ulong msec;
+	/*
+	 * If the button is released in less than Mindelaymsec and the mouse
+	 * moved less than Minmovepx along both axes, it is considered a null
+	 * selection regardless of whether it crossed a char boundary.
+	 */
+	enum{
+		Minmovemsec	= 2,
+		Minmovepx	= 4
+	};
+	int b, reg;
+	uint p0, p1, q;
 	Point mp, pt0, pt1, qt;
-	int reg, b;
+	uint msec;
 
+	b = mc->m.buttons;	/* when called, a button is down */
 	mp = mc->m.xy;
-	b = mc->m.buttons;
 	msec = mc->m.msec;
 
-	/* remove tick */
-	if(f->p0 == f->p1)
+	if(f->p0 == f->p1)	/* remove tick */
 		frtick(f, frptofchar(f, f->p0), 0);
 	p0 = p1 = frcharofpt(f, mp);
 	pt0 = frptofchar(f, p0);
@@ -1217,9 +1210,9 @@ xselect(Frame *f, Mousectl *mc, Image *col, uint *p1p)	/* when called, button is
 				frtick(f, pt0, 0);
 			if(reg != region(q, p0)){	/* crossed starting point; reset */
 				if(reg > 0)
-					selrestore(f, pt0, p0, p1);
+					frredrawrange(f, pt0, p0, p1);
 				else if(reg < 0)
-					selrestore(f, pt1, p1, p0);
+					frredrawrange(f, pt1, p1, p0);
 				p1 = p0;
 				pt1 = pt0;
 				reg = region(q, p0);
@@ -1230,13 +1223,12 @@ xselect(Frame *f, Mousectl *mc, Image *col, uint *p1p)	/* when called, button is
 			if(reg > 0){
 				if(q > p1)
 					frdrawsel0(f, pt1, p1, q, col, display->white);
-
 				else if(q < p1)
-					selrestore(f, qt, q, p1);
+					frredrawrange(f, qt, q, p1);
 			}else if(reg < 0){
 				if(q > p1)
-					selrestore(f, pt1, p1, q);
-				else
+					frredrawrange(f, pt1, p1, q);
+				else if(q < p1)
 					frdrawsel0(f, qt, q, p1, col, display->white);
 			}
 			p1 = q;
@@ -1247,26 +1239,24 @@ xselect(Frame *f, Mousectl *mc, Image *col, uint *p1p)	/* when called, button is
 		flushimage(f->display, 1);
 		readmouse(mc);
 	}while(mc->m.buttons == b);
-	if(mc->m.msec-msec < DELAY && p0!=p1
-	&& abs(mp.x-mc->m.xy.x)<MINMOVE
-	&& abs(mp.y-mc->m.xy.y)<MINMOVE) {
+	if(p0!=p1 && mc->m.msec-msec<Minmovemsec
+	&& abs(mp.x-mc->m.xy.x)<Minmovepx
+	&& abs(mp.y-mc->m.xy.y)<Minmovepx){
 		if(reg > 0)
-			selrestore(f, pt0, p0, p1);
+			frredrawrange(f, pt0, p0, p1);
 		else if(reg < 0)
-			selrestore(f, pt1, p1, p0);
+			frredrawrange(f, pt1, p1, p0);
 		p1 = p0;
+		pt1 = pt0;
 	}
 	if(p1 < p0){
-		tmp = p0;
-		p0 = p1;
-		p1 = tmp;
+		q = p0, p0 = p1, p1 = q;
+		qt = pt0, pt0 = pt1, pt1 = qt;
 	}
-	pt0 = frptofchar(f, p0);
 	if(p0 == p1)
 		frtick(f, pt0, 0);
-	selrestore(f, pt0, p0, p1);
-	/* restore tick */
-	if(f->p0 == f->p1)
+	frredrawrange(f, pt0, p0, p1);
+	if(f->p0 == f->p1)	/* restore tick */
 		frtick(f, frptofchar(f, f->p0), 1);
 	flushimage(f->display, 1);
 	*p1p = p1;
