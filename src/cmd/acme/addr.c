@@ -175,15 +175,15 @@ Range
 address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, int (*getc)(void*, uint),  int *evalp, uint *qp)
 {
 	Range r, nr;
-	uint q, n, npat;
+	uint q, n, npat, npatalloc;
 	int dir, size;
-	Rune c, prevc, nc, delim, *pat;
+	Rune c, prevc, nextc, delim, *pat;
 
 	r = ar;
 	q = q0;
 	dir = None;
 	size = Line;
-	c = 0;
+	c = '\0';
 	while(q < q1){
 		prevc = c;
 		c = (*getc)(a, q++);
@@ -195,7 +195,7 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 			ar = r;
 			/* fall through */
 		case ',':
-			if(prevc == 0)	/* lhs defaults to 0 */
+			if(prevc == '\0')	/* lhs defaults to 0 */
 				r.q0 = 0;
 			if(q>=q1 && t!=nil && t->file!=nil)	/* rhs defaults to $ */
 				r.q1 = t->file->b.nc;
@@ -207,9 +207,11 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 			return r;
 		case '+':
 		case '-':
-			if(*evalp && (prevc=='+' || prevc=='-'))
-				if((nc=(*getc)(a, q))!='#' && nc!='/' && nc!='?')
+			if(*evalp && (prevc=='+' || prevc=='-')){
+				nextc = (*getc)(a, q);
+				if(nextc!='#' && nextc!='/' && nextc!='?')
 					r = number(showerr, t, r, 1, prevc, Line, evalp);	/* do previous one */
+			}
 			dir = c;
 			break;
 		case '.':
@@ -218,33 +220,34 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 				*qp = q-1;
 				return r;
 			}
-			if(*evalp)
+			if(*evalp){
 				if(c == '.')
 					r = ar;
 				else
 					r = range(t->file->b.nc, t->file->b.nc);
+			}
 			if(q < q1)
 				dir = Fore;
 			else
 				dir = None;
 			break;
 		case '#':
-			if(q==q1 || (c=(*getc)(a, q++))<'0' || '9'<c){
+			if(q==q1 || (nextc=(*getc)(a, q), nextc<'0' || '9'<nextc)){
 				*qp = q-1;
 				return r;
 			}
+			c = nextc, q++;
 			size = Char;
 			/* fall through */
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			n = c -'0';
-			while(q<q1){
-				nc = (*getc)(a, q++);
-				if(nc<'0' || '9'<nc){
-					q--;
+			n = c-'0';
+			while(q < q1){
+				nextc = (*getc)(a, q);
+				if(nextc<'0' || '9'<nextc)
 					break;
-				}
-				n = n*10+(nc-'0');
+				c = nextc, q++;
+				n = n*10+(c-'0');
 			}
 			if(*evalp)
 				r = number(showerr, t, r, n, dir, size, evalp);
@@ -257,29 +260,22 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 		case '/':
 			delim = c;
 			npat = 0;
-			pat = nil;
-			while(q<q1){
-				c = (*getc)(a, q++);
-				if(c == delim)
-					goto out;
-				switch(c){
-				case '\n':
-					--q;
-					goto out;
-				case '\\':
-					pat = runerealloc(pat, npat+1);
-					pat[npat++] = c;
-					if(q == q1)
-						goto out;
-					c = (*getc)(a, q++);
+			npatalloc = 64;
+			pat = runemalloc(npatalloc);
+			while(q < q1){
+				nextc = (*getc)(a, q);
+				if(nextc == '\n')
 					break;
-				}
-				pat = runerealloc(pat, npat+1);
+				c = nextc, q++;
+				if(c == delim)
+					break;
+				if(npatalloc-npat < 3)	/* space for two pattern runes and '\0' */
+					pat = runerealloc(pat, npatalloc*=2);
 				pat[npat++] = c;
+				if(c=='\\' && q<q1)
+					pat[npat++] = c = (*getc)(a, q++);
 			}
-		    out:
-			pat = runerealloc(pat, npat+1);
-			pat[npat] = 0;
+			pat[npat] = '\0';
 			if(*evalp)
 				r = regexp(showerr, t, lim, r, pat, dir, evalp);
 			free(pat);
@@ -288,7 +284,7 @@ address(uint showerr, Text *t, Range lim, Range ar, void *a, uint q0, uint q1, i
 			break;
 		}
 	}
-	if(*evalp && dir != None)
+	if(*evalp && dir!=None)
 		r = number(showerr, t, r, 1, dir, Line, evalp);	/* do previous one */
 	*qp = q;
 	return r;
