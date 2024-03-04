@@ -49,25 +49,25 @@ isregexc(int r)
 	return FALSE;
 }
 
-// nlcounttopos starts at q0 and advances nl lines,
-// being careful not to walk past the end of the text,
-// and then nr chars, being careful not to walk past
-// the end of the current line.
-// It returns the final position.
-long
-nlcounttopos(Text *t, long q0, long nl, long nr)
+/*
+ * Start at q and advance nl lines, being careful not to walk
+ * past the end of the text, and then nr chars, being careful
+ * not to walk past the end of the line.
+ */
+uint
+nlcounttopos(Text *t, uint q, long nl, long nr)
 {
-	while(nl > 0 && q0 < t->file->b.nc) {
-		if(textreadc(t, q0++) == '\n')
+	uint end;
+
+	end = t->file->b.nc;
+	while(nl>0 && q<end)
+		if(textreadc(t, q++) == '\n')
 			nl--;
-	}
-	if(nl > 0)
-		return q0;
-	while(nr > 0 && q0 < t->file->b.nc && textreadc(t, q0) != '\n') {
-		q0++;
+	while(nr>0 && q<end && textreadc(t, q)!='\n'){
+		q++;
 		nr--;
 	}
-	return q0;
+	return q;
 }
 
 static int

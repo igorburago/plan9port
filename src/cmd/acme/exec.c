@@ -19,7 +19,7 @@ Buffer	snarfbuf;
 /*
  * These functions get called as:
  *
- *	fn(et, t, argt, flag1, flag1, flag2, s, n);
+ *	fn(et, t, argt, flag1, flag2, s, n);
  *
  * Where the arguments are:
  *
@@ -27,12 +27,12 @@ Buffer	snarfbuf;
  *	t: the Text* containing the current selection (Edit, Cut, Snarf, Paste)
  *	argt: the Text* containing the argument for a 2-1 click.
  *	e->flag1: from Exectab entry
- * 	e->flag2: from Exectab entry
+ *	e->flag2: from Exectab entry
  *	s: the command line remainder (e.g., "x" if executing "Dump x")
- *	n: length of s  (s is *not* NUL-terminated)
+ *	n: length of s (s is NOT null-terminated)
  */
 
-void doabort(Text*, Text*, Text*, int, int, Rune*, int);
+void	doabort(Text*, Text*, Text*, int, int, Rune*, int);
 void	del(Text*, Text*, Text*, int, int, Rune*, int);
 void	delcol(Text*, Text*, Text*, int, int, Rune*, int);
 void	dotfiles(Text*, Text*, Text*, int, int, Rune*, int);
@@ -589,28 +589,27 @@ get(Text *et, Text *t, Text *argt, int flag1, int _0, Rune *arg, int narg)
 {
 	char *name;
 	Rune *r;
-	int i, n, dirty, samename, isdir;
+	int i, n, samename, isdir;
 	TextAddr *addr, *a;
 	Window *w;
 	Text *u;
 	Dir *d;
-	long q0, q1;
+	uint q0, q1;
 
 	USED(_0);
 
-	if(flag1)
-		if(et==nil || et->w==nil)
-			return;
-	if(!et->w->isdir && (et->w->body.file->b.nc>0 && !winclean(et->w, TRUE)))
+	if(flag1 && (et==nil || et->w==nil))
 		return;
 	w = et->w;
+	if(!w->isdir && (w->body.file->b.nc>0 && !winclean(w, TRUE)))
+		return;
 	t = &w->body;
 	name = getname(t, argt, arg, narg, FALSE);
 	if(name == nil){
 		warning(nil, "no file name\n");
 		return;
 	}
-	if(t->file->ntext>1){
+	if(t->file->ntext > 1){
 		d = dirstat(name);
 		isdir = (d!=nil && (d->qid.type & QTDIR));
 		free(d);
@@ -620,7 +619,7 @@ get(Text *et, Text *t, Text *argt, int flag1, int _0, Rune *arg, int narg)
 		}
 	}
 	addr = emalloc((t->file->ntext)*sizeof(TextAddr));
-	for(i=0; i<t->file->ntext; i++) {
+	for(i=0; i<t->file->ntext; i++){
 		a = &addr[i];
 		u = t->file->text[i];
 		a->lorigin = nlcount(u, 0, u->org, &a->rorigin);
@@ -636,15 +635,9 @@ get(Text *et, Text *t, Text *argt, int flag1, int _0, Rune *arg, int narg)
 	}
 	samename = runeeq(r, n, t->file->name, t->file->nname);
 	textload(t, 0, name, samename);
-	if(samename){
-		t->file->mod = FALSE;
-		dirty = FALSE;
-	}else{
-		t->file->mod = TRUE;
-		dirty = TRUE;
-	}
+	t->file->mod = !samename;
 	for(i=0; i<t->file->ntext; i++)
-		t->file->text[i]->w->dirty = dirty;
+		t->file->text[i]->w->dirty = t->file->mod;
 	free(name);
 	free(r);
 	winsettag(w);
@@ -652,9 +645,9 @@ get(Text *et, Text *t, Text *argt, int flag1, int _0, Rune *arg, int narg)
 	for(i=0; i<t->file->ntext; i++){
 		u = t->file->text[i];
 		textsetselect(&u->w->tag, u->w->tag.file->b.nc, u->w->tag.file->b.nc);
-		if(samename) {
+		if(samename){
 			a = &addr[i];
-			// warning(nil, "%d %d %d %d %d %d\n", a->lorigin, a->rorigin, a->lq0, a->rq0, a->lq1, a->rq1);
+			//warning(nil, "%d %d %d %d %d %d\n", a->lorigin, a->rorigin, a->lq0, a->rq0, a->lq1, a->rq1);
 			q0 = nlcounttopos(u, 0, a->lq0, a->rq0);
 			q1 = nlcounttopos(u, q0, a->lq1, a->rq1);
 			textsetselect(u, q0, q1);

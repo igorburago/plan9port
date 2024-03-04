@@ -62,7 +62,7 @@ uint	min(uint, uint);
 void	movetodel(Window*);
 void	new(Text*, Text*, Text*, int, int, Rune*, int);
 long	nlcount(Text*, long, long, long*);
-long	nlcounttopos(Text*, long, long, long);
+uint	nlcounttopos(Text*, uint, long, long);
 Rune*	parsetag(Window*, int, int*);
 void	paste(Text*, Text*, Text*, int, int, Rune*, int);
 void	plumblook(Plumbmsg*);
