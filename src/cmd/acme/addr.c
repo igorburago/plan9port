@@ -14,9 +14,9 @@
 
 enum
 {
-	None = 0,
-	Fore = '+',
-	Back = '-'
+	None	= 0,
+	Fore	= '+',
+	Back	= '-'
 };
 
 enum
@@ -70,76 +70,97 @@ nlcounttopos(Text *t, long q0, long nl, long nr)
 	return q0;
 }
 
-Range
-number(uint showerr, Text *t, Range r, int line, int dir, int size, int *evalp)
+static int
+atlb(Text *t, uint q)
 {
-	uint q0, q1;
+	/* Both extremities of the text count as line boundaries, too. */
+	return q==0 || q==t->file->b.nc || textreadc(t, q-1)=='\n';
+}
 
-	if(size == Char){
-		if(dir == Fore)
-			line = r.q1+line;
-		else if(dir == Back){
-			if(r.q0==0 && line>0)
-				r.q0 = t->file->b.nc;
-			line = r.q0 - line;
-		}
-		if(line<0 || line>t->file->b.nc)
-			goto Rescue;
-		*evalp = TRUE;
-		return range(line, line);
+static uint
+nextlb(Text *t, uint q)
+{
+	uint end;
+
+	end = t->file->b.nc;
+	while(q<end && textreadc(t, q++)!='\n')
+		continue;
+	return q;
+}
+
+static uint
+prevlb(Text *t, uint q)
+{
+	if(q > 0)
+		q--;	/* \n if at a line boundary, or something we would skip anyway */
+	while(q>0 && textreadc(t, q-1)!='\n')
+		q--;
+	return q;
+}
+
+static Range
+number(uint showerr, Text *t, Range r, uint n, int dir, int size, int *evalp)
+{
+	uint end, q0, q1;
+
+	end = t->file->b.nc;
+	if(dir == None){
+		q0 = q1 = 0;
+		dir = Fore;
+	}else{
+		q0 = r.q0;
+		q1 = r.q1;
 	}
-	q0 = r.q0;
-	q1 = r.q1;
-	switch(dir){
-	case None:
-		q0 = 0;
-		q1 = 0;
-	Forward:
-		while(line>0 && q1<t->file->b.nc)
-			if(textreadc(t, q1++) == '\n' || q1==t->file->b.nc)
-				if(--line > 0)
-					q0 = q1;
-		if(line==1 && q1==t->file->b.nc) // 6 goes to end of 5-line file
-			break;
-		if(line > 0)
-			goto Rescue;
-		break;
-	case Fore:
-		if(q1 > 0)
-			while(q1<t->file->b.nc && textreadc(t, q1-1) != '\n')
-				q1++;
-		q0 = q1;
-		goto Forward;
-	case Back:
-		if(q0 < t->file->b.nc)
-			while(q0>0 && textreadc(t, q0-1)!='\n')
-				q0--;
-		q1 = q0;
-		while(line>0 && q0>0){
-			if(textreadc(t, q0-1) == '\n'){
-				if(--line >= 0)
-					q1 = q0;
-			}
-			--q0;
+	if(size == Char){
+		if(dir == Fore){
+			if(q1>end || end-q1<n)
+				goto Rescue;
+			q0 = q1 += n;
+		}else if(dir == Back){
+			if(q0==0 && n>0)	/* going backwards from 0 wraps around */
+				q0 = end;
+			if(q0 < n)
+				goto Rescue;
+			q1 = q0 -= n;
 		}
-		/* :1-1 is :0 = #0, but :1-2 is an error */
-		if(line > 1)
+	}else if(size == Line){
+		if(dir == Fore){
+			if(!atlb(t, q1))
+				q1 = nextlb(t, q1);
+			q0 = q1;
+			while(n>0 && q1<end){
+				q0 = q1;
+				q1 = nextlb(t, q1);
+				n--;
+			}
+			if(n == 1)	/* going past the end by one is allowed and taken as :$ */
+				q0 = end;
+		}else if(dir == Back){
+			if(!atlb(t, q0))
+				q0 = prevlb(t, q0);
+			q1 = q0;
+			while(n>0 && q0>0){
+				q1 = q0;
+				q0 = prevlb(t, q0);
+				n--;
+			}
+			if(n == 1)	/* going over the top by one is allowed and taken as :0 */
+				q1 = 0;
+		}
+		if(n > 1)
 			goto Rescue;
-		while(q0>0 && textreadc(t, q0-1)!='\n')
-			--q0;
 	}
 	*evalp = TRUE;
 	return range(q0, q1);
 
-    Rescue:
+Rescue:
 	if(showerr)
 		warning(nil, "address out of range\n");
 	*evalp = FALSE;
 	return r;
 }
 
-
-Range
+static Range
 regexp(uint showerr, Text *t, Range lim, Range r, Rune *pat, int dir, int *foundp)
 {
 	int found;
