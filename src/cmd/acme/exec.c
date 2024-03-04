@@ -153,44 +153,43 @@ isexecc(Rune r)
 }
 
 void
-execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
+execute(Text *t, uint q0, uint q1, int external, Text *argt)
 {
-	uint q0, q1;
-	int n, f, ec;
-	Rune c, *r, *s;
+	uint xq0, xq1, nr, nxr, f;
+	Rune c, *r, *xr, *s;
 	char *b, *a, *aa;
 	Exectab *e;
 	Runestr dir;
+	int ns, ec;
 
-	q0 = aq0;
-	q1 = aq1;
-	if(q1 == q0){	/* expand to find word (actually file name) */
+	xq0 = q0;
+	xq1 = q1;
+	if(q0 == q1){	/* expand to file name boundaries */
 		/* if in selection, choose selection */
-		if(t->q1>t->q0 && t->q0<=q0 && q0<=t->q1){
+		if(t->q0<t->q1 && t->q0<=q0 && q0<=t->q1){
 			q0 = t->q0;
 			q1 = t->q1;
 		}else{
-			while(q1<t->file->b.nc && isexecc(c=textreadc(t, q1)) && c!=':')
+			while(q1<t->file->b.nc && (c=textreadc(t, q1), isexecc(c) && c!=':'))
 				q1++;
-			while(q0>0 && isexecc(c=textreadc(t, q0-1)) && c!=':')
+			while(q0>0 && (c=textreadc(t, q0-1), isexecc(c) && c!=':'))
 				q0--;
 			if(q1 == q0)
 				return;
 		}
 	}
-	r = runemalloc(q1-q0);
-	bufread(&t->file->b, q0, r, q1-q0);
-	e = lookup(r, q1-q0);
+	nr = q1-q0;
+	r = runemalloc(nr);
+	bufread(&t->file->b, q0, r, nr);
+	e = lookup(r, nr);
 	if(!external && t->w!=nil && t->w->nopen[QWevent]>0){
 		f = 0;
-		if(e)
+		if(e != nil)
 			f |= 1;
-		if(q0!=aq0 || q1!=aq1){
-			bufread(&t->file->b, aq0, r, aq1-aq0);
+		if(q0!=xq0 || q1!=xq1)
 			f |= 2;
-		}
 		aa = getbytearg(argt, TRUE, TRUE, &a);
-		if(a){
+		if(a != nil){
 			if(strlen(a) > EVENTSIZE){	/* too big; too bad */
 				free(r);
 				free(aa);
@@ -203,23 +202,22 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 		ec = 'x';
 		if(t->what == Body)
 			ec = 'X';
-		n = aq1-aq0;
-		if(n <= EVENTSIZE)
-			winevent(t->w, "%c%ud %ud %d %d %.*S\n", ec, aq0, aq1, f, n, n, r);
+		xr = r+(xq0-q0);
+		nxr = xq1-xq0;
+		if(nxr <= EVENTSIZE)
+			winevent(t->w, "%c%ud %ud %ud %ud %.*S\n", ec, xq0, xq1, f, nxr, (int)nxr, xr);
 		else
-			winevent(t->w, "%c%ud %ud %d 0 \n", ec, aq0, aq1, f);
-		if(q0!=aq0 || q1!=aq1){
-			n = q1-q0;
-			bufread(&t->file->b, q0, r, n);
-			if(n <= EVENTSIZE)
-				winevent(t->w, "%c%ud %ud 0 %d %.*S\n", ec, q0, q1, n, n, r);
+			winevent(t->w, "%c%ud %ud %ud 0 \n", ec, xq0, xq1, f);
+		if(q0!=xq0 || q1!=xq1){
+			if(nr <= EVENTSIZE)
+				winevent(t->w, "%c%ud %ud 0 %ud %.*S\n", ec, q0, q1, nr, (int)nr, r);
 			else
 				winevent(t->w, "%c%ud %ud 0 0 \n", ec, q0, q1);
 		}
-		if(a){
-			winevent(t->w, "%c0 0 0 %d %s\n", ec, utflen(a), a);
-			if(aa)
-				winevent(t->w, "%c0 0 0 %d %s\n", ec, utflen(aa), aa);
+		if(a != nil){
+			winevent(t->w, "%c0 0 0 %ud %s\n", ec, (uint)utflen(a), a);
+			if(aa != nil)
+				winevent(t->w, "%c0 0 0 %ud %s\n", ec, (uint)utflen(aa), aa);
 			else
 				winevent(t->w, "%c0 0 0 0 \n", ec);
 		}
@@ -228,21 +226,20 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 		free(a);
 		return;
 	}
-	if(e){
-		if(e->mark && seltext!=nil)
-		if(seltext->what == Body){
+	if(e != nil){
+		if(e->mark && seltext!=nil && seltext->what==Body){
 			seq++;
 			filemark(seltext->w->body.file);
 		}
-		s = skipbl(r, q1-q0, &n);
-		s = findbl(s, n, &n);
-		s = skipbl(s, n, &n);
-		(*e->fn)(t, seltext, argt, e->flag1, e->flag2, s, n);
+		s = skipbl(r, nr, &ns);
+		s = findbl(s, ns, &ns);
+		s = skipbl(s, ns, &ns);
+		(*e->fn)(t, seltext, argt, e->flag1, e->flag2, s, ns);
 		free(r);
 		return;
 	}
 
-	b = runetobyte(r, q1-q0);
+	b = runetobyte(r, nr);
 	free(r);
 	dir = dirname(t, nil, 0);
 	if(dir.nr==1 && dir.r[0]=='.'){	/* sigh */
@@ -251,7 +248,7 @@ execute(Text *t, uint aq0, uint aq1, int external, Text *argt)
 		dir.nr = 0;
 	}
 	aa = getbytearg(argt, TRUE, TRUE, &a);
-	if(t->w)
+	if(t->w != nil)
 		incref(&t->w->ref);
 	run(t->w, b, dir.r, dir.nr, TRUE, aa, a, FALSE);
 }
@@ -299,7 +296,7 @@ getarg(Text *argt, int doaddr, int dofile, Rune **rp, int *nrp)
 		e.q0 = argt->q0;
 		e.q1 = argt->q1;
 	}
-	n = e.q1 - e.q0;
+	n = e.q1-e.q0;
 	*rp = runemalloc(n+1);
 	bufread(&argt->file->b, e.q0, *rp, n);
 	if(doaddr)
