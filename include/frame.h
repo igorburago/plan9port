@@ -54,6 +54,12 @@ struct Frame
 	int		tickscale;	/* tick scaling factor */
 	Image		*tick;		/* typing tick */
 	Image		*tickback;	/* saved image under tick */
+	struct{
+		Frbox	*box;
+		void	*pts;
+		int	nboxalloc;
+		int	nptsalloc;
+	} insertaux;			/* auxiliary storage for frinsert() */
 };
 
 ulong	frcharofpt(Frame*, Point);

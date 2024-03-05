@@ -16,13 +16,14 @@ frinit(Frame *f, Rectangle r, Font *ft, Image *b, Image *cols[NCOL])
 	f->nlines = 0;
 	f->p0 = 0;
 	f->p1 = 0;
-	f->box = 0;
+	f->box = nil;
 	f->lastlinefull = 0;
-	if(cols != 0)
+	if(cols != nil)
 		memmove(f->cols, cols, sizeof f->cols);
 	frsetrects(f, r, b);
 	if(f->tick==nil && f->cols[BACK]!=0)
 		frinittick(f);
+	memset(&f->insertaux, 0, sizeof(f->insertaux));
 }
 
 void
@@ -71,16 +72,18 @@ frsetrects(Frame *f, Rectangle r, Image *b)
 void
 frclear(Frame *f, int freeall)
 {
-	if(f->nbox)
+	if(f->nbox > 0)
 		_frdelbox(f, 0, f->nbox-1);
-	if(f->box)
-		free(f->box);
+	free(f->box);
+	f->box = nil;
+	free(f->insertaux.box);
+	free(f->insertaux.pts);
+	memset(&f->insertaux, 0, sizeof(f->insertaux));
 	if(freeall){
 		freeimage(f->tick);
 		freeimage(f->tickback);
-		f->tick = 0;
-		f->tickback = 0;
+		f->tick = nil;
+		f->tickback = nil;
 	}
-	f->box = 0;
 	f->ticked = 0;
 }

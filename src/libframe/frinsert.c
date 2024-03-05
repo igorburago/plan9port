@@ -4,44 +4,42 @@
 #include <mouse.h>
 #include <frame.h>
 
-#define	DELTA	25
-#define	TMPSIZE	256
-static Frame		frame;
+enum { DELTA = 25 };
 
-static
-Point
-bxscan(Frame *f, Rune *sp, Rune *ep, Point *ppt)
+static Point
+bxscan(Frame *f, Rune *sp, Rune *ep, Point *ppt, Frame *auxf)
 {
-	int w, c, nb, delta, nl, nr, rw;
+	enum { TMPSIZE = 256 };
 	Frbox *b;
+	int w, c, nb, delta, nl, nr, rw;
 	char *s, tmp[TMPSIZE+3];	/* +3 for rune overflow */
 	uchar *p;
 
-	frame.r = f->r;
-	frame.b = f->b;
-	frame.font = f->font;
-	frame.maxtab = f->maxtab;
-	frame.nbox = 0;
-	frame.nchars = 0;
-	memmove(frame.cols, f->cols, sizeof frame.cols);
+	auxf->r = f->r;
+	auxf->b = f->b;
+	auxf->font = f->font;
+	auxf->maxtab = f->maxtab;
+	auxf->nbox = 0;
+	auxf->nchars = 0;
+	memmove(auxf->cols, f->cols, sizeof auxf->cols);
 	delta = DELTA;
 	nl = 0;
-	for(nb=0; sp<ep && nl<=f->maxlines; nb++,frame.nbox++){
-		if(nb == frame.nalloc){
-			_frgrowbox(&frame, delta);
+	for(nb=0; sp<ep && nl<=f->maxlines; nb++,auxf->nbox++){
+		if(nb == auxf->nalloc){
+			_frgrowbox(auxf, delta);
 			if(delta < 10000)
 				delta *= 2;
 		}
-		b = &frame.box[nb];
+		b = &auxf->box[nb];
 		c = *sp;
 		if(c=='\t' || c=='\n'){
 			b->bc = c;
 			b->wid = 5000;
-			b->minwid = (c=='\n')? 0 : stringwidth(frame.font, " ");
+			b->minwid = (c=='\n')? 0 : stringwidth(auxf->font, " ");
 			b->nrune = -1;
-			if(c=='\n')
+			if(c == '\n')
 				nl++;
-			frame.nchars++;
+			auxf->nchars++;
 			sp++;
 		}else{
 			s = tmp;
@@ -54,32 +52,31 @@ bxscan(Frame *f, Rune *sp, Rune *ep, Point *ppt)
 				rw = runetochar(s, sp);
 				if(s+rw >= tmp+TMPSIZE)
 					break;
-				w += runestringnwidth(frame.font, sp, 1);
+				w += runestringnwidth(auxf->font, sp, 1);
 				sp++;
 				s += rw;
 				nr++;
 			}
 			*s++ = 0;
 			p = _frallocstr(f, s-tmp);
-			b = &frame.box[nb];
+			b = &auxf->box[nb];
 			b->ptr = p;
 			memmove(p, tmp, s-tmp);
 			b->wid = w;
 			b->nrune = nr;
-			frame.nchars += nr;
+			auxf->nchars += nr;
 		}
 	}
-	_frcklinewrap0(f, ppt, &frame.box[0]);
-	return _frdraw(&frame, *ppt);
+	_frcklinewrap0(f, ppt, &auxf->box[0]);
+	return _frdraw(auxf, *ppt);
 }
 
-static
-void
+static void
 chopframe(Frame *f, Point pt, ulong p, int bn)
 {
 	Frbox *b;
 
-	for(b = &f->box[bn]; ; b++){
+	for(b=&f->box[bn]; ; b++){
 		if(b >= &f->box[f->nbox])
 			drawerror(f->display, "endofframe");
 		_frcklinewrap(f, &pt, b);
@@ -90,34 +87,39 @@ chopframe(Frame *f, Point pt, ulong p, int bn)
 	}
 	f->nchars = p;
 	f->nlines = f->maxlines;
-	if(b<&f->box[f->nbox])				/* BUG */
+	if(b < &f->box[f->nbox])				/* BUG */
 		_frdelbox(f, (int)(b-f->box), f->nbox-1);
 }
 
 void
 frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 {
+	Frame auxf;
+	struct { Point pt0, pt1; } *pts;
+	int npts, nptsalloc;
 	Point pt0, pt1, opt0, ppt0, ppt1, pt;
 	Frbox *b;
-	int n, n0, nn0, y;
+	int n, n0, nn0;
+	int y, y0, y1;
 	ulong cn0;
 	Image *col, *tcol;
 	Rectangle r;
-	static struct{
-		Point pt0, pt1;
-	}*pts;
-	static int nalloc=0;
-	int npts;
 
 	if(p0>f->nchars || sp==ep || f->b==nil)
 		return;
+	memset(&auxf, 0, sizeof(auxf));
+	auxf.box = f->insertaux.box;
+	auxf.nalloc = f->insertaux.nboxalloc;
+	pts = f->insertaux.pts;
+	nptsalloc = f->insertaux.nptsalloc;
+
 	n0 = _frfindbox(f, 0, 0, p0);
 	cn0 = p0;
 	nn0 = n0;
 	pt0 = _frptofcharnb(f, p0, n0);
 	ppt0 = pt0;
 	opt0 = pt0;
-	pt1 = bxscan(f, sp, ep, &ppt0);
+	pt1 = bxscan(f, sp, ep, &ppt0, &auxf);
 	ppt1 = pt1;
 	if(n0 < f->nbox){
 		_frcklinewrap(f, &pt0, b = &f->box[n0]);	/* for frdrawsel() */
@@ -133,14 +135,15 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 		frtick(f, frptofchar(f, f->p0), 0);
 
 	/*
-	 * Find point where old and new x's line up
+	 * Find point where old and new x's line up.
 	 * Invariants:
 	 *	pt0 is where the next box (b, n0) is now
 	 *	pt1 is where it will be after the insertion
-	 * If pt1 goes off the rectangle, we can toss everything from there on
+	 * If pt1 goes off the rectangle, we can toss everything from there on.
 	 */
-	for(b = &f->box[n0],npts=0;
-	     pt1.x!=pt0.x && pt1.y!=f->r.max.y && n0<f->nbox; b++,n0++,npts++){
+	for(b=&f->box[n0],npts=0;
+			pt1.x!=pt0.x && pt1.y!=f->r.max.y && n0<f->nbox;
+			b++,n0++,npts++){
 		_frcklinewrap(f, &pt0, b);
 		_frcklinewrap0(f, &pt1, b);
 		if(b->nrune > 0){
@@ -152,14 +155,16 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 				b = &f->box[n0];
 			}
 		}
-		if(npts == nalloc){
-			pts = realloc(pts, (npts+DELTA)*sizeof(pts[0]));
-			nalloc += DELTA;
+		if(npts == nptsalloc){
+			nptsalloc += DELTA;
+			pts = realloc(pts, nptsalloc*sizeof(pts[0]));
+			if(pts == nil)
+				drawerror(f->display, "frinsert out of memory");
 			b = &f->box[n0];
 		}
 		pts[npts].pt0 = pt0;
 		pts[npts].pt1 = pt1;
-		/* has a text box overflowed off the frame? */
+		/* Has a text box overflowed off the frame? */
 		if(pt1.y == f->r.max.y)
 			break;
 		_fradvance(f, &pt0, b);
@@ -174,33 +179,34 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 	}
 	if(n0 == f->nbox)
 		f->nlines = (pt1.y-f->r.min.y)/f->font->height+(pt1.x>f->r.min.x);
-	else if(pt1.y!=pt0.y){
-		int q0, q1;
-
+	else if(pt1.y != pt0.y){
 		y = f->r.max.y;
-		q0 = pt0.y+f->font->height;
-		q1 = pt1.y+f->font->height;
-		f->nlines += (q1-q0)/f->font->height;
+		y0 = pt0.y+f->font->height;
+		y1 = pt1.y+f->font->height;
+		f->nlines += (y1-y0)/f->font->height;
 		if(f->nlines > f->maxlines)
 			chopframe(f, ppt1, p0, nn0);
 		if(pt1.y < y){
 			r = f->r;
-			r.min.y = q1;
+			r.min.y = y1;
 			r.max.y = y;
-			if(q1 < y)
-				draw(f->b, r, f->b, nil, Pt(f->r.min.x, q0));
+			if(y1 < y)
+				draw(f->b, r, f->b, nil, Pt(f->r.min.x, y0));
 			r.min = pt1;
 			r.max.x = pt1.x+(f->r.max.x-pt0.x);
-			r.max.y = q1;
+			r.max.y = y1;
 			draw(f->b, r, f->b, nil, pt0);
 		}
 	}
 	/*
-	 * Move the old stuff down to make room.  The loop will move the stuff
-	 * between the insertion and the point where the x's lined up.
-	 * The draw()s above moved everything down after the point they lined up.
+	 * Move the old stuff down to make room. The loop will move the stuff
+	 * between the insertion and the point where the x's lined up. The
+	 * draw()s above moved everything down after the point they lined up.
 	 */
-	for((y=pt1.y==f->r.max.y?pt1.y:0),b = &f->box[n0-1]; --npts>=0; --b){
+	y = 0;
+	if(pt1.y == f->r.max.y)
+		y = pt1.y;
+	for(b=&f->box[n0-1]; --npts>=0; b--){
 		pt = pts[npts].pt1;
 		if(b->nrune > 0){
 			r.min = pt;
@@ -208,11 +214,11 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 			r.max.x += b->wid;
 			r.max.y += f->font->height;
 			draw(f->b, r, f->b, nil, pts[npts].pt0);
-			/* clear bit hanging off right */
+			/* Clear bit hanging off right. */
 			if(npts==0 && pt.y>pt0.y){
 				/*
-				 * first new char is bigger than first char we're
-				 * displacing, causing line wrap. ugly special case.
+				 * First new char is bigger than first char we're
+				 * displacing, causing line wrap. Ugly special case.
 				 */
 				r.min = opt0;
 				r.max = opt0;
@@ -245,7 +251,7 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 			if(r.max.x >= f->r.max.x)
 				r.max.x = f->r.max.x;
 			cn0--;
-			if(f->p0<=cn0 && cn0<f->p1){ /* b is inside selection */
+			if(f->p0<=cn0 && cn0<f->p1){	/* b is inside selection */
 				col = f->cols[HIGH];
 				tcol = f->cols[HTEXT];
 			}else{
@@ -258,7 +264,7 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 				y = pt.y;
 		}
 	}
-	/* insertion can extend the selection, so the condition here is different */
+	/* Insertion can extend the selection, so the condition here is different. */
 	if(f->p0<p0 && p0<=f->p1){
 		col = f->cols[HIGH];
 		tcol = f->cols[HTEXT];
@@ -267,25 +273,30 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 		tcol = f->cols[TEXT];
 	}
 	frselectpaint(f, ppt0, ppt1, col);
-	_frdrawtext(&frame, ppt0, tcol, col);
-	_fraddbox(f, nn0, frame.nbox);
-	for(n=0; n<frame.nbox; n++)
-		f->box[nn0+n] = frame.box[n];
+	_frdrawtext(&auxf, ppt0, tcol, col);
+	_fraddbox(f, nn0, auxf.nbox);
+	for(n=0; n<auxf.nbox; n++)
+		f->box[nn0+n] = auxf.box[n];
 	if(nn0>0 && f->box[nn0-1].nrune>=0 && ppt0.x-f->box[nn0-1].wid>=f->r.min.x){
-		--nn0;
+		nn0--;
 		ppt0.x -= f->box[nn0].wid;
 	}
-	n0 += frame.nbox;
+	n0 += auxf.nbox;
 	_frclean(f, ppt0, nn0, n0<f->nbox-1? n0+1 : n0);
-	f->nchars += frame.nchars;
+	f->nchars += auxf.nchars;
 	if(f->p0 >= p0)
-		f->p0 += frame.nchars;
+		f->p0 += auxf.nchars;
 	if(f->p0 > f->nchars)
 		f->p0 = f->nchars;
 	if(f->p1 >= p0)
-		f->p1 += frame.nchars;
+		f->p1 += auxf.nchars;
 	if(f->p1 > f->nchars)
 		f->p1 = f->nchars;
 	if(f->p0 == f->p1)
 		frtick(f, frptofchar(f, f->p0), 1);
+
+	f->insertaux.box = auxf.box;
+	f->insertaux.nboxalloc = auxf.nalloc;
+	f->insertaux.pts = pts;
+	f->insertaux.nptsalloc = nptsalloc;
 }
