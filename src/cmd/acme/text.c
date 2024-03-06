@@ -318,48 +318,41 @@ textload(Text *t, uint q0, char *file, int setqid)
 }
 
 uint
-textbsinsert(Text *t, uint q0, Rune *r, uint n, int tofile, int *nrp)
+textbsinsert(Text *t, uint q0, Rune *r, uint n, int tofile, int *ninsp)
 {
-	Rune *bp, *tp, *up;
-	int i, initial;
+	Rune *ins;
+	uint qins, nins, i;
 
+	ins = r;
+	qins = q0;
 	if(t->what == Tag){	/* can't happen but safety first: mustn't backspace over file name */
-    Err:
-		textinsert(t, q0, r, n, tofile);
-		*nrp = n;
-		return q0;
+		nins = n;
+		goto Insert;
 	}
-	bp = r;
-	for(i=0; i<n; i++)
-		if(*bp++ == '\b'){
-			--bp;
-			initial = 0;
-			tp = runemalloc(n);
-			runemove(tp, r, i);
-			up = tp+i;
-			for(; i<n; i++){
-				*up = *bp++;
-				if(*up == '\b')
-					if(up == tp)
-						initial++;
-					else
-						--up;
-				else
-					up++;
-			}
-			if(initial){
-				if(initial > q0)
-					initial = q0;
-				q0 -= initial;
-				textdelete(t, q0, q0+initial, tofile);
-			}
-			n = up-tp;
-			textinsert(t, q0, tp, n, tofile);
-			free(tp);
-			*nrp = n;
-			return q0;
-		}
-	goto Err;
+	for(nins=0; nins<n; nins++)
+		if(r[nins] == '\b')
+			break;
+	if(nins == n)
+		goto Insert;
+	ins = runemalloc(n);
+	runemove(ins, r, nins);
+	for(i=nins; i<n; i++)
+		if(r[i] == '\b'){
+			if(nins > 0)
+				nins--;
+			else if(qins > 0)
+				qins--;
+		}else
+			ins[nins++] = r[i];
+	if(qins < q0)
+		textdelete(t, qins, q0, tofile);
+Insert:
+	textinsert(t, qins, ins, nins, tofile);
+	if(ins != r)
+		free(ins);
+	if(ninsp != nil)
+		*ninsp = nins;
+	return qins;
 }
 
 void

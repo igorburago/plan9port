@@ -213,10 +213,11 @@ flushwarnings(void)
 	Warning *warn, *next;
 	Window *w;
 	Text *t;
-	int owner, nr, q0, n;
+	int owner;
 	Rune *r;
+	uint q0, n, nr;
 
-	for(warn=warnings; warn; warn=next) {
+	for(warn=warnings; warn!=nil; warn=next) {
 		w = errorwin(warn->md, 'E');
 		t = &w->body;
 		owner = w->owner;
@@ -226,22 +227,22 @@ flushwarnings(void)
 		/*
 		 * Most commands don't generate much output. For instance,
 		 * Edit ,>cat goes through /dev/cons and is already in blocks
-		 * because of the i/o system, but a few can.  Edit ,p will
-		 * put the entire result into a single hunk.  So it's worth doing
-		 * this in blocks (and putting the text in a buffer in the first
-		 * place), to avoid a big memory footprint.
+		 * because of the i/o system, but a few can. Edit ,p will put
+		 * the entire result into a single hunk. So it's worth doing
+		 * this in blocks (and putting the text in a buffer in the
+		 * first place), to avoid a big memory footprint.
 		 */
 		r = fbufalloc();
 		q0 = t->file->b.nc;
-		for(n = 0; n < warn->buf.nc; n += nr){
-			nr = warn->buf.nc - n;
+		for(n=0; n<warn->buf.nc; n+=nr){
+			nr = warn->buf.nc-n;
 			if(nr > RBUFSIZE)
 				nr = RBUFSIZE;
 			bufread(&warn->buf, n, r, nr);
-			textbsinsert(t, t->file->b.nc, r, nr, TRUE, &nr);
+			textbsinsert(t, t->file->b.nc, r, nr, TRUE, nil);
 		}
-		textshow(t, q0, t->file->b.nc, 1);
 		free(r);
+		textshow(t, q0, t->file->b.nc, TRUE);
 		winsettag(t->w);
 		textscrdraw(t);
 		w->owner = owner;
@@ -249,7 +250,7 @@ flushwarnings(void)
 		winunlock(w);
 		bufclose(&warn->buf);
 		next = warn->next;
-		if(warn->md)
+		if(warn->md != nil)
 			fsysdelid(warn->md);
 		free(warn);
 	}

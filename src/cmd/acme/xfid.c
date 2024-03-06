@@ -447,17 +447,18 @@ void
 xfidwrite(Xfid *x)
 {
 	Fcall fc;
-	int c, qid, nb, nr, eval;
+	int c, qid, eval;
 	char buf[64], *err;
 	Window *w;
 	Rune *r;
 	Range a;
 	Text *t;
+	int nr, nb;
 	uint q0, tq0, tq1;
 
 	qid = FILE(x->f->qid);
 	w = x->f->w;
-	if(w){
+	if(w != nil){
 		c = 'F';
 		if(qid==QWtag || qid==QWbody)
 			c = 'E';
@@ -468,11 +469,11 @@ xfidwrite(Xfid *x)
 			return;
 		}
 	}
-	x->fcall.data[x->fcall.count] = 0;
+	x->fcall.data[x->fcall.count] = '\0';
 	switch(qid){
 	case Qcons:
 		w = errorwin(x->f->mntdir, 'X');
-		t=&w->body;
+		t = &w->body;
 		goto BodyTag;
 
 	case Qlabel:
@@ -481,7 +482,6 @@ xfidwrite(Xfid *x)
 		break;
 
 	case QWaddr:
-		x->fcall.data[x->fcall.count] = 0;
 		r = bytetorune(x->fcall.data, &nr);
 		t = &w->body;
 		wincommit(w, t);
@@ -504,7 +504,7 @@ xfidwrite(Xfid *x)
 	case Qeditout:
 	case QWeditout:
 		r = fullrunewrite(x, &nr);
-		if(w)
+		if(w != nil)
 			err = edittext(w, w->wrselrange.q1, r, nr);
 		else
 			err = edittext(nil, 0, r, nr);
@@ -553,16 +553,16 @@ xfidwrite(Xfid *x)
 		tq0 = t->q0;
 		tq1 = t->q1;
 		textinsert(t, q0, r, nr, TRUE);
+		free(r);
 		if(tq0 >= q0)
 			tq0 += nr;
 		if(tq1 >= q0)
 			tq1 += nr;
 		textsetselect(t, tq0, tq1);
 		if(shouldscroll(t, q0, qid))
-			textshow(t, q0+nr, q0+nr, 0);
+			textshow(t, q0+nr, q0+nr, FALSE);
 		textscrdraw(t);
 		winsettag(w);
-		free(r);
 		w->addr.q0 += nr;
 		w->addr.q1 = w->addr.q0;
 		fc.count = x->fcall.count;
@@ -595,9 +595,10 @@ xfidwrite(Xfid *x)
 					filemark(t->file);
 				}
 				q0 = textbsinsert(t, q0, r, nr, TRUE, &nr);
-				textsetselect(t, t->q0, t->q1);	/* insert could leave it somewhere else */
 				if(qid!=QWwrsel && shouldscroll(t, q0, qid))
-					textshow(t, q0+nr, q0+nr, 1);
+					textshow(t, q0+nr, q0+nr, TRUE);
+				else
+					textsetselect(t, t->q0, t->q1);	/* insert could leave it somewhere else */
 				textscrdraw(t);
 			}
 			winsettag(w);
@@ -614,7 +615,7 @@ xfidwrite(Xfid *x)
 		respond(x, &fc, buf);
 		break;
 	}
-	if(w)
+	if(w != nil)
 		winunlock(w);
 }
 
