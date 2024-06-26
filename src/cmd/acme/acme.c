@@ -1084,53 +1084,52 @@ Cursor2 boxcursor2 = {
 void
 iconinit(void)
 {
-	Rectangle r;
-	Image *tmp;
+	Rectangle r, br;
+	Image *bc;
 
-	if(tagcols[BACK] == nil) {
-		/* Blue */
-		tagcols[BACK] = allocimagemix(display, DPalebluegreen, DWhite);
-		tagcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPalegreygreen);
-		tagcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPurpleblue);
+	if(tagcols[BACK] == nil){
+		tagcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xD8D2CCFF);
+		tagcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xBAB1A9FF);
+		tagcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x100F0FFF);
 		tagcols[TEXT] = display->black;
 		tagcols[HTEXT] = display->black;
 
-		/* Yellow */
-		textcols[BACK] = allocimagemix(display, DPaleyellow, DWhite);
-		textcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DDarkyellow);
-		textcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DYellowgreen);
+		textcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFAF1E8FF);
+		textcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xDFD4CCFF);
+		textcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xD8D2CCFF);
 		textcols[TEXT] = display->black;
 		textcols[HTEXT] = display->black;
 	}
 
-	r = Rect(0, 0, Scrollwid, font->height+1);
-	if(button && eqrect(r, button->r))
+	r = Rect(0, 0, Scrollwid, font->height);
+	if(button!=nil && eqrect(r, button->r))
 		return;
 
-	if(button){
+	if(button != nil){
 		freeimage(button);
 		freeimage(modbutton);
 		freeimage(colbutton);
 	}
 
+	br = insetrect(r, ButtonBorder);
+	bc = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x7D6E66FF);
+
 	button = allocimage(display, r, screen->chan, 0, DNofill);
 	draw(button, r, tagcols[BACK], nil, r.min);
-	border(button, r, ButtonBorder, tagcols[BORD], ZP);
+	border(button, br, ButtonBorder, bc, ZP);
 
-	r = button->r;
 	modbutton = allocimage(display, r, screen->chan, 0, DNofill);
 	draw(modbutton, r, tagcols[BACK], nil, r.min);
-	border(modbutton, r, ButtonBorder, tagcols[BORD], ZP);
-	r = insetrect(r, ButtonBorder);
-	tmp = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DMedblue);
-	draw(modbutton, r, tmp, nil, ZP);
-	freeimage(tmp);
+	draw(modbutton, insetrect(br, ButtonBorder/2), bc, nil, r.min);
 
-	r = button->r;
-	colbutton = allocimage(display, r, screen->chan, 0, DPurpleblue);
+	colbutton = allocimage(display, r, screen->chan, 0, DNofill);
+	draw(colbutton, r, tagcols[BACK], nil, r.min);
+	border(colbutton, br, ButtonBorder, bc, ZP);
 
-	but2col = allocimage(display, r, screen->chan, 1, 0xAA0000FF);
-	but3col = allocimage(display, r, screen->chan, 1, 0x006600FF);
+	freeimage(bc);
+
+	but2col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x994B43FF);
+	but3col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x688B68FF);
 }
 
 void
