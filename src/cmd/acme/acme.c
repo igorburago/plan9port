@@ -578,7 +578,7 @@ mousethread(void *arg)
 		case MResize:
 			if(getwindow(display, Refnone) < 0)
 				error("attach to window");
-			draw(screen, screen->r, display->white, nil, ZP);
+			draw(screen, screen->r, display->black, nil, ZP);
 			iconinit();
 			rowresize(&row, screen->clipr);
 			break;
@@ -1088,17 +1088,17 @@ iconinit(void)
 	Image *bc;
 
 	if(tagcols[BACK] == nil){
-		tagcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xD8D2CCFF);
-		tagcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xBAB1A9FF);
-		tagcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x100F0FFF);
-		tagcols[TEXT] = display->black;
-		tagcols[HTEXT] = display->black;
+		tagcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x413627FF);
+		tagcols[TEXT] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFAD4B0FF);
+		tagcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x6D5D4CFF);
+		tagcols[HTEXT] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFEDEAEFF);
+		tagcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x675644FF);
 
-		textcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFAF1E8FF);
-		textcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xDFD4CCFF);
-		textcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xD8D2CCFF);
-		textcols[TEXT] = display->black;
-		textcols[HTEXT] = display->black;
+		textcols[BACK] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x231A0DFF);
+		textcols[TEXT] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFC892FF);
+		textcols[HIGH] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x434B3CFF);
+		textcols[HTEXT] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFCA99FF);
+		textcols[BORD] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x413627FF);
 	}
 
 	r = Rect(0, 0, Scrollwid, font->height);
@@ -1112,7 +1112,7 @@ iconinit(void)
 	}
 
 	br = insetrect(r, ButtonBorder);
-	bc = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x7D6E66FF);
+	bc = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xCD9B5EFF);
 
 	button = allocimage(display, r, screen->chan, 0, DNofill);
 	draw(button, r, tagcols[BACK], nil, r.min);
@@ -1128,8 +1128,8 @@ iconinit(void)
 
 	freeimage(bc);
 
-	but2col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x994B43FF);
-	but3col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x688B68FF);
+	but2col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x99283DFF);
+	but3col = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x657337FF);
 }
 
 void
